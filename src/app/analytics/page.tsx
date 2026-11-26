@@ -1,13 +1,17 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { PILLARS, PLATFORMS, type Metrics, type MetricSource, type Platform } from "@/lib/types";
+import { PILLARS, PLATFORMS, type MetricSource, type Platform } from "@/lib/types";
 import type { Post } from "@/lib/posts";
 import {
   byPlatform, change, comparison, highlights, inRange, lastDays, measured, previousRange, totals, trend,
   type DataView, type Range, type Totals,
 } from "@/lib/analytics";
 import type { ConnectionState, SyncResult } from "@/lib/integrations/types";
+import {
+  METRIC_ORDER, OPTIONAL_METRICS, metricLabel, parseMetricDraft, sameMetrics, toMetricDraft,
+  type MetricDraft, type MetricKey,
+} from "@/lib/capture";
 import { engagement, engagementRate, formatDate, hasRate, num, pct, platformColor } from "@/lib/utils";
 import TrendChart from "@/components/TrendChart";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, PlatformBadge, Select } from "@/components/ui";
@@ -438,33 +442,14 @@ function DataEntry({ posts, onEdit }: { posts: Post[]; onEdit: (p: Post) => void
   );
 }
 
-type Draft = Record<keyof Omit<Metrics, "clicks">, string>;
-const toDraft = (m: Metrics | null): Draft => ({
-  reach: m ? String(m.reach) : "",
-  impressions: m?.impressions == null ? "" : String(m.impressions),
-  likes: m ? String(m.likes) : "",
-  comments: m ? String(m.comments) : "",
-  shares: m ? String(m.shares) : "",
-  saves: m?.saves == null ? "" : String(m.saves),
-});
-const n0 = (s: string) => Math.max(0, Number(s) || 0);
-const nOrNull = (s: string) => (s.trim() === "" ? null : n0(s));
-
 function MetricsModal({ post, onClose }: { post: Post; onClose: () => void }) {
   const { savePublication } = useStore();
-  const [d, setD] = useState<Draft>(toDraft(post.metrics));
-  const metrics: Metrics = {
-    reach: n0(d.reach), impressions: nOrNull(d.impressions), likes: n0(d.likes), comments: n0(d.comments),
-    shares: n0(d.shares), saves: nOrNull(d.saves), clicks: post.metrics?.clicks,
-  };
-  const fields: { k: keyof Draft; label: string; hint?: string }[] = [
-    { k: "reach", label: post.platform === "TikTok" ? "Views" : "Reach" },
-    { k: "impressions", label: "Impressions", hint: "Leave blank if not reported" },
-    { k: "likes", label: "Likes" },
-    { k: "comments", label: "Comments" },
-    { k: "shares", label: post.platform === "Threads" ? "Reposts" : "Shares" },
-    { k: "saves", label: "Saves", hint: "Leave blank if not reported" },
-  ];
+  const [d, setD] = useState<MetricDraft>(toMetricDraft(post.metrics));
+  // Messages appear after the first Save attempt, then update as the user types.
+  const [tried, setTried] = useState(false);
+  const parsed = parseMetricDraft(d);
+  const errors = parsed.ok ? {} : parsed.errors;
+  const optional = (k: MetricKey) => OPTIONAL_METRICS.includes(k);
   return (
     <Modal title="Performance data" onClose={onClose}>
       <p className="mb-3 text-sm text-muted">{post.title} · {post.platform}</p>
@@ -477,9 +462,15 @@ function MetricsModal({ post, onClose }: { post: Post; onClose: () => void }) {
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
+          // Nothing is saved until every field is valid: no blank or unreadable value becomes 0.
+          if (!parsed.ok) {
+            setTried(true);
+            return;
+          }
+          const metrics = parsed.metrics;
           // Numbers on demo samples stay demo. Numbers on the user's own content are "manual":
           // typed by hand, never labelled as synced. Each save keeps a dated snapshot.
-          if (JSON.stringify(toDraft(post.metrics)) !== JSON.stringify(d)) {
+          if (!sameMetrics(post.metrics, metrics)) {
             const source = post.content.isDemo ? "demo" : "manual";
             const at = new Date().toISOString();
             savePublication(post.contentId, {
@@ -493,13 +484,30 @@ function MetricsModal({ post, onClose }: { post: Post; onClose: () => void }) {
         }}
       >
         <div className="grid grid-cols-2 gap-3">
-          {fields.map((f) => (
-            <Field key={f.k} label={f.label}>
-              <Input type="number" min={0} inputMode="numeric" placeholder={f.hint ? "Not reported" : "0"} value={d[f.k]} onChange={(e) => setD({ ...d, [f.k]: e.target.value })} />
-            </Field>
-          ))}
+          {METRIC_ORDER.map((k) => {
+            const err = tried ? errors[k] : undefined;
+            return (
+              <div key={k}>
+                <Field label={optional(k) ? `${metricLabel(k, post.platform)} (optional)` : metricLabel(k, post.platform)}>
+                  {/* Text, not type=number: a number field silently empties "1,200", which used to save as 0. */}
+                  <Input
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder={optional(k) ? "Not reported" : undefined}
+                    value={d[k]}
+                    aria-invalid={err ? true : undefined}
+                    aria-describedby={err ? `metric-err-${k}` : undefined}
+                    onChange={(e) => setD({ ...d, [k]: e.target.value })}
+                  />
+                </Field>
+                {err && <p id={`metric-err-${k}`} className="mt-1 text-xs text-[#8a3a45]">{err}</p>}
+              </div>
+            );
+          })}
         </div>
-        <p className="text-sm">Engagement rate: <b>{pct(engagementRate(metrics))}</b></p>
+        <p className="text-xs text-muted">Reach, likes, comments and shares are required (enter 0 if none). Leave optional numbers blank if the platform doesn&apos;t report them.</p>
+        <p className="text-sm">Engagement rate: <b>{parsed.ok && hasRate(parsed.metrics) ? pct(engagementRate(parsed.metrics)) : "–"}</b></p>
+        {tried && !parsed.ok && <p role="alert" className="text-sm text-[#8a3a45]">Fix the highlighted numbers to save.</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button type="submit">Save</Button>

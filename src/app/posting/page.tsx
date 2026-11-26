@@ -2,7 +2,8 @@
 import { useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import type { ContentItem, Status } from "@/lib/types";
-import { today, type Post } from "@/lib/posts";
+import type { Post } from "@/lib/posts";
+import { resolvePublishedDate } from "@/lib/capture";
 import { formatDate, statusColor } from "@/lib/utils";
 import ContentForm from "@/components/ContentForm";
 import { Button, Empty, PageHeader, PlatformBadge, StatusBadge } from "@/components/ui";
@@ -25,7 +26,7 @@ export default function PostingPage() {
     savePublication(c.contentId, {
       ...c.publication,
       status,
-      publishedDate: status === "Posted" ? c.publication.publishedDate || today() : status === "Ready" ? "" : c.publication.publishedDate,
+      publishedDate: status === "Posted" ? resolvePublishedDate(c.publication) : status === "Ready" ? "" : c.publication.publishedDate,
     });
   const count = (s: string) => posts.filter((c) => c.status === s).length;
 

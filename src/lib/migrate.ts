@@ -71,7 +71,8 @@ export function readMetrics(x: unknown): Metrics | null | typeof INVALID {
   const impressions = optional(x.impressions), saves = optional(x.saves);
   if (impressions === INVALID || saves === INVALID) return INVALID;
   const m: Metrics = { reach, impressions, likes, comments, shares, saves };
-  if (x.clicks != null) {
+  if (x.clicks === null) m.clicks = null; // "not reported", kept as stored
+  else if (x.clicks !== undefined) {
     const clicks = count(x.clicks);
     if (clicks === undefined) return INVALID;
     m.clicks = clicks;

@@ -17,7 +17,7 @@ export type Metrics = {
   comments: number;
   shares: number;
   saves: number | null;
-  clicks?: number;
+  clicks?: number | null; // null or missing = not reported
 };
 
 // A dated copy of a publication's numbers, so trends can use history once syncing exists.

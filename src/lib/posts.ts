@@ -1,4 +1,5 @@
 import type { ContentItem, MetricSource, Metrics, Platform, Publication, Status } from "./types";
+import { localToday } from "./capture";
 
 // A flat view of one platform publication plus its parent's fields.
 // Calendar, Posting, the Dashboard and Analytics work on these, so each
@@ -41,7 +42,5 @@ export function flattenPosts(content: ContentItem[]): Post[] {
 
 export const isReal = (s: MetricSource | null) => s === "manual" || s === "synced";
 
-export const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+// Today's local calendar date (YYYY-MM-DD). One implementation, shared with the capture rules.
+export const today = () => localToday();

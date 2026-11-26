@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { PILLARS, PLATFORMS, STATUSES, type ContentItem, type Publication } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { today } from "@/lib/posts";
+import { resolvePublishedDate } from "@/lib/capture";
 import ContentForm, { blankContent } from "@/components/ContentForm";
 import { Button, Card, Empty, Input, PageHeader, PillarBadge, PlatformBadge, Select } from "@/components/ui";
 
@@ -24,7 +24,7 @@ export default function BankPage() {
   );
 
   const setStatusFor = (c: ContentItem, p: Publication, s: Publication["status"]) =>
-    savePublication(c.id, { ...p, status: s, publishedDate: s === "Posted" && !p.publishedDate ? today() : p.publishedDate });
+    savePublication(c.id, { ...p, status: s, publishedDate: s === "Posted" ? resolvePublishedDate(p) : p.publishedDate });
 
   return (
     <>

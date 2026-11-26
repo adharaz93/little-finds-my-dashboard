@@ -3,6 +3,7 @@ import { useState } from "react";
 import { PILLARS, PLATFORM_FORMATS, PLATFORMS, STATUSES, type ContentItem, type Format, type Platform, type Publication } from "@/lib/types";
 import { parseTags, uid } from "@/lib/utils";
 import { today } from "@/lib/posts";
+import { resolvePublishedDate } from "@/lib/capture";
 import { useStore } from "@/lib/store";
 import { Button, Field, Input, Modal, Select, Textarea } from "./ui";
 
@@ -55,8 +56,8 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
             ...rest,
             ...(tags.length ? { tags } : {}),
             title: f.title.trim(),
-            // A post marked Posted without a date gets its scheduled date as published date.
-            publications: f.publications.map((p) => (p.status === "Posted" && !p.publishedDate ? { ...p, publishedDate: p.scheduledDate } : p)),
+            // Posted platforms get the shared published-date rule (keeps a date already entered).
+            publications: f.publications.map((p) => (p.status === "Posted" ? { ...p, publishedDate: resolvePublishedDate(p) } : p)),
           });
           onClose();
         }}
