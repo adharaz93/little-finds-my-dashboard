@@ -30,6 +30,13 @@ export function dayN(capturedOn: string | undefined, publishedDate: string | und
   return daysBetween(publishedDate, capturedOn);
 }
 
+// How Day N is shown. A capture dated before the published date (possible if the published date
+// was edited later) reads "Before publishing", never a negative day. Unknown dates read "Day —".
+export function dayNLabel(n: number | null): string {
+  if (n == null) return "Day —";
+  return n < 0 ? "Before publishing" : `Day ${n}`;
+}
+
 // Each edit as the fields that changed, oldest edit first. `at` is when the change was made.
 export type EditChange = { key: MetricKey; from: number | null; to: number | null };
 export function editDiffs(s: MetricSnapshot): { at: string; changes: EditChange[] }[] {

@@ -3,13 +3,14 @@ import { useRef } from "react";
 import { useStore } from "@/lib/store";
 import { readBackup } from "@/lib/migrate";
 import { today } from "@/lib/posts";
+import { lastDeletedLabel } from "@/lib/recovery";
 
 const linkClass = "link inline-flex min-h-11 items-center text-xs text-muted";
 
 // Data lives only in this browser, so a backup file is the way to keep it safe or move it.
 // Import checks the file exactly like saved data and asks before replacing anything.
 export default function BackupLinks() {
-  const { content, assets, exportData, importBackup } = useStore();
+  const { content, assets, exportData, importBackup, lastDeleted, restoreLastDeleted } = useStore();
   const file = useRef<HTMLInputElement>(null);
 
   const download = () => {
@@ -44,6 +45,18 @@ export default function BackupLinks() {
     <>
       <button onClick={download} className={linkClass}>Export backup</button>
       <button onClick={() => file.current?.click()} className={linkClass}>Import backup</button>
+      {/* Shown only when a readable recovery copy exists. */}
+      {lastDeleted && (
+        <button
+          onClick={() => {
+            const r = restoreLastDeleted();
+            alert(r.ok ? r.message : r.error);
+          }}
+          className={linkClass}
+        >
+          {lastDeletedLabel(lastDeleted)}
+        </button>
+      )}
       <input ref={file} type="file" accept="application/json,.json" className="hidden" aria-hidden tabIndex={-1} onChange={onFile} />
     </>
   );

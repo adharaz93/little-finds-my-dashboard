@@ -4,6 +4,7 @@ import type { Asset, ContentItem, Publication } from "./types";
 import { DEMO_ASSETS, DEMO_CONTENT } from "./demo-data";
 import { KEY_BEFORE_IMPORT, KEY_BEFORE_RESET, KEY_V2, loadState, serialize, type Backup, type Quarantined } from "./migrate";
 import { flattenPosts, type Post } from "./posts";
+import { KEY_LAST_DELETED, commitRecoveryCopy, contentDeletionRecord, planRestore, publicationRemovalRecord, readLastDeleted, type LastDeleted } from "./recovery";
 
 // What the user should know about storage: load problems, and whether the last save worked.
 export type StorageStatus = { notices: string[]; saveError: string | null; savingDisabled: boolean };
@@ -14,8 +15,12 @@ type Store = {
   assets: Asset[];
   storage: StorageStatus;
   dismissNotices: () => void;
-  saveContent: (c: ContentItem) => void;
-  deleteContent: (id: string) => void;
+  // Saves the content form. If it removes platforms that hold performance data, a recovery copy is
+  // written first; if that fails nothing is saved and the error is returned.
+  saveContentSafely: (c: ContentItem) => Result;
+  deleteContent: (id: string) => Result; // if the item holds performance data, writes the recovery copy first; nothing is deleted if that fails
+  lastDeleted: LastDeleted | null; // the current recovery copy, if one exists and is readable
+  restoreLastDeleted: () => { ok: true; message: string } | { ok: false; error: string };
   savePublication: (contentId: string, p: Publication) => void;
   saveAsset: (a: Asset) => void;
   deleteAsset: (id: string) => void;
@@ -23,6 +28,10 @@ type Store = {
   exportData: () => string; // everything, including set-aside records, as a backup file's text
   importBackup: (b: Backup) => boolean; // false when cancelled
 };
+
+export type Result = { ok: true } | { ok: false; error: string };
+
+const COPY_FAILED = "A recovery copy couldn't be saved (browser storage is full or blocked), so nothing was deleted. Export a backup or free up space, then try again.";
 
 const Ctx = createContext<Store | null>(null);
 
@@ -42,6 +51,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const quarantine = useRef<Quarantined[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState<StorageStatus>({ notices: [], saveError: null, savingDisabled: false });
+  const [lastDeleted, setLastDeleted] = useState<LastDeleted | null>(null);
+  // After a restore, the recovery copy is cleared only once the restored data has been saved.
+  const clearCopyAfterSave = useRef(false);
+  const restoring = useRef(false);
 
   // Load after hydration: v2, else v1 (left in place as a backup), else the demo samples.
   useEffect(() => {
@@ -51,6 +64,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setContent(r.content);
     setAssets(r.assets);
     setStorage({ notices: r.notices, saveError: null, savingDisabled: !r.canWrite });
+    setLastDeleted(readLastDeleted(localStorage)); // read only: an unreadable copy is ignored, never changed
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -61,16 +75,67 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     let saveError: string | null = null;
     try {
       localStorage.setItem(KEY_V2, serialize(content, assets, quarantine.current));
+      if (clearCopyAfterSave.current) {
+        clearCopyAfterSave.current = false;
+        try {
+          localStorage.removeItem(KEY_LAST_DELETED);
+        } catch {
+          // Left in place: a later restore of the same data is refused as a duplicate.
+        }
+      }
     } catch (e) {
       saveError = errorText(e);
+      // The restored data wasn't saved: keep the recovery copy, and don't let a later save clear a newer one.
+      clearCopyAfterSave.current = false;
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reports the write result just made
     setStorage((s) => (s.saveError === saveError ? s : { ...s, saveError }));
   }, [content, assets, loaded, storage.savingDisabled]);
 
   const posts = useMemo(() => flattenPosts(content), [content]);
-  const saveContent = useCallback((c: ContentItem) => setContent((l) => upsert(l, c)), []);
-  const deleteContent = useCallback((id: string) => setContent((l) => l.filter((x) => x.id !== id)), []);
+  const deleteContent = useCallback(
+    (id: string): Result => {
+      const item = content.find((c) => c.id === id);
+      if (!item) return { ok: true };
+      // No performance data: no copy, so an existing copy with real history is kept as it is.
+      const record = contentDeletionRecord(item, new Date().toISOString());
+      if (!commitRecoveryCopy(localStorage, record)) return { ok: false, error: COPY_FAILED };
+      if (record) setLastDeleted(record);
+      setContent((l) => l.filter((x) => x.id !== id));
+      return { ok: true };
+    },
+    [content],
+  );
+  const saveContentSafely = useCallback(
+    (c: ContentItem): Result => {
+      // Only platforms with performance data are copied; removing empty ones keeps any existing copy.
+      const record = publicationRemovalRecord(content.find((x) => x.id === c.id), c, new Date().toISOString());
+      if (!commitRecoveryCopy(localStorage, record)) return { ok: false, error: COPY_FAILED.replace("nothing was deleted", "nothing was saved") };
+      if (record) setLastDeleted(record);
+      setContent((l) => upsert(l, c));
+      return { ok: true };
+    },
+    [content],
+  );
+  const restoreLastDeleted = useCallback((): { ok: true; message: string } | { ok: false; error: string } => {
+    if (restoring.current) return { ok: false, error: "A restore is already in progress." };
+    // Storage is the source of truth: re-read it, so a copy replaced or damaged meanwhile is never applied.
+    const record = readLastDeleted(localStorage);
+    if (!record) {
+      setLastDeleted(null);
+      return { ok: false, error: "The recovery copy is no longer available, so nothing was restored." };
+    }
+    const plan = planRestore(content, record);
+    if (!plan.ok) return plan;
+    restoring.current = true;
+    clearCopyAfterSave.current = true;
+    setContent(plan.content);
+    setLastDeleted(null);
+    return { ok: true, message: plan.message };
+  }, [content]);
+  useEffect(() => {
+    restoring.current = false; // a restore has been applied once content changes
+  }, [content]);
   const savePublication = useCallback(
     (contentId: string, p: Publication) =>
       setContent((l) => l.map((c) => (c.id === contentId ? { ...c, publications: upsert(c.publications, p) } : c))),
@@ -107,7 +172,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContent, deleteContent, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
+    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
       {children}
     </Ctx.Provider>
   );

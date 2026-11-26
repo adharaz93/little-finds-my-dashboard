@@ -4,6 +4,7 @@ import { PILLARS, PLATFORM_FORMATS, PLATFORMS, STATUSES, type ContentItem, type 
 import { parseTags, uid } from "@/lib/utils";
 import { today } from "@/lib/posts";
 import { resolvePublishedDate } from "@/lib/capture";
+import { contentDeletionMessage, hasPerformanceData, platformRemovalMessage } from "@/lib/recovery";
 import { useStore } from "@/lib/store";
 import { Button, Field, Input, Modal, Select, Textarea } from "./ui";
 
@@ -21,7 +22,7 @@ export function blankContent(date = today()): ContentItem {
 // Add / edit modal. The content itself first, then one short block per platform.
 // Post URL, post ID and published date sit under "More details" so the form stays short.
 export default function ContentForm({ item, onClose }: { item: ContentItem; onClose: () => void }) {
-  const { content, saveContent, deleteContent } = useStore();
+  const { content, saveContentSafely, deleteContent } = useStore();
   const isEdit = content.some((c) => c.id === item.id);
   const [f, setF] = useState(item);
   // Topics are typed as one comma-separated line and cleaned on save.
@@ -38,7 +39,8 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
       return;
     }
     if (f.publications.length === 1) return; // a content item keeps at least one platform
-    if (existing.metrics && !confirm(`Remove ${platform}? Its performance numbers will be removed too.`)) return;
+    // Any capture (removed ones included) or numbers saved before history count as performance data.
+    if (hasPerformanceData(existing) && !confirm(platformRemovalMessage(existing))) return;
     set("publications", f.publications.filter((p) => p.id !== existing.id));
   };
 
@@ -52,13 +54,18 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
           const tags = parseTags(tagText);
           const { tags: _previous, ...rest } = f;
           void _previous;
-          saveContent({
+          const r = saveContentSafely({
             ...rest,
             ...(tags.length ? { tags } : {}),
             title: f.title.trim(),
             // Posted platforms get the shared published-date rule (keeps a date already entered).
             publications: f.publications.map((p) => (p.status === "Posted" ? { ...p, publishedDate: resolvePublishedDate(p) } : p)),
           });
+          // A removed platform's data couldn't be copied for recovery: nothing was saved, the form stays open.
+          if (!r.ok) {
+            alert(r.error);
+            return;
+          }
           onClose();
         }}
       >
@@ -158,10 +165,15 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
             <Button
               variant="danger"
               onClick={() => {
-                if (confirm("Delete this content and all its platform posts?")) {
-                  deleteContent(f.id);
-                  onClose();
+                // Counts come from the saved item, which is what gets deleted (not unsaved form edits).
+                const saved = content.find((c) => c.id === f.id);
+                if (!saved || !confirm(contentDeletionMessage(saved))) return;
+                const r = deleteContent(f.id);
+                if (!r.ok) {
+                  alert(r.error);
+                  return;
                 }
+                onClose();
               }}
             >
               Delete

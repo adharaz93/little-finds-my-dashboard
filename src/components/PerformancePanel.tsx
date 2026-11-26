@@ -4,7 +4,7 @@ import { useStore } from "@/lib/store";
 import type { MetricSnapshot, MetricSource, Metrics, Platform, Publication } from "@/lib/types";
 import { METRIC_ORDER, localToday, metricLabel, type MetricKey } from "@/lib/capture";
 import { addCapture, editCapture, ensureSnapshotIds, latestSnapshot, removeCapture, restoreCapture } from "@/lib/snapshots";
-import { dayN, displayOrder, editDiffs, findDuplicate, type HistoryEntry } from "@/lib/history";
+import { dayN, dayNLabel, displayOrder, editDiffs, findDuplicate, type HistoryEntry } from "@/lib/history";
 import { engagementRate, formatDate, hasRate, num, pct } from "@/lib/utils";
 import CaptureForm, { type CaptureValues } from "./CaptureForm";
 import { Badge, Button, Modal, PlatformBadge, StatusBadge } from "./ui";
@@ -26,7 +26,6 @@ const enteredOn = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 };
 const value = (n: number | null | undefined) => (n == null ? "Not reported" : num(n));
-const dayLabel = (n: number | null) => (n == null ? "Day —" : `Day ${n}`);
 const captureName = (s: MetricSnapshot) => (s.capturedOn ? formatDate(s.capturedOn) : `date unknown (entered ${enteredOn(s.at)})`);
 
 // One publication's performance: latest numbers, add a capture, and its history (newest first),
@@ -99,7 +98,7 @@ export default function PerformancePanel({ contentId, publicationId, onClose }: 
             <p className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
               <span>
                 Latest
-                {latest ? ` · ${latest.capturedOn ? `${formatDate(latest.capturedOn)} · ${dayLabel(dayN(latest.capturedOn, pub.publishedDate))}` : "date unknown"}` : " · recorded before history was kept"}
+                {latest ? ` · ${latest.capturedOn ? `${formatDate(latest.capturedOn)} · ${dayNLabel(dayN(latest.capturedOn, pub.publishedDate))}` : "date unknown"}` : " · recorded before history was kept"}
               </span>
               {pub.metricsSource && <Badge color={SOURCE_BADGE[pub.metricsSource].c}>{SOURCE_BADGE[pub.metricsSource].t}</Badge>}
             </p>
@@ -216,7 +215,7 @@ function CaptureCard({ e, pub, removed = false, onEdit, onRemove, onRestore }: {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm">
           <b className="font-semibold">{s.capturedOn ? formatDate(s.capturedOn) : "Date unknown"}</b>
-          <span className="text-muted"> · {dayLabel(dayN(s.capturedOn, pub.publishedDate))}</span>
+          <span className="text-muted"> · {dayNLabel(dayN(s.capturedOn, pub.publishedDate))}</span>
           {!s.capturedOn && <span className="text-xs text-muted"> · entered {enteredOn(s.at)}</span>}
         </p>
         <span className="flex flex-wrap gap-1">
