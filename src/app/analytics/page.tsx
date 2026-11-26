@@ -8,6 +8,7 @@ import {
   type DataView, type Range, type Totals,
 } from "@/lib/analytics";
 import type { ConnectionState, SyncResult } from "@/lib/integrations/types";
+import { MIN_AGE, MIN_GROUP, MIN_PLATFORM, whatsWorking, type Dimension } from "@/lib/insights";
 import { engagement, engagementRate, formatDate, hasRate, num, pct, platformColor } from "@/lib/utils";
 import TrendChart from "@/components/TrendChart";
 import PerformancePanel, { SOURCE_BADGE } from "@/components/PerformancePanel";
@@ -25,7 +26,7 @@ const segBtn = (on: boolean) =>
   `min-h-10 rounded-full px-3 text-sm transition-colors ${on ? "bg-navy font-medium text-cream" : "text-muted hover:text-navy"}`;
 
 export default function AnalyticsPage() {
-  const { content, posts } = useStore();
+  const { content, posts, today } = useStore();
   const [view, setView] = useState<DataView>("real");
   const [rangeId, setRangeId] = useState<(typeof RANGES)[number]["id"]>("30");
   const [range, setRange] = useState<Range | null>(null);
@@ -103,7 +104,8 @@ export default function AnalyticsPage() {
           <Comparison className="mt-4" rows={comparison(content, current)} />
           <TopContent className="mt-4" list={current} />
 
-          <PlatformInsights list={current} />
+          <PlatformInsights list={current} today={today} />
+          <WhatsWorking list={current} today={today} />
         </>
       )}
 
@@ -293,8 +295,8 @@ function TopContent({ list, className }: { list: Post[]; className: string }) {
 
 /* ---------- F. Platform insights ---------- */
 
-function PlatformInsights({ list }: { list: Post[] }) {
-  const items = highlights(list);
+function PlatformInsights({ list, today }: { list: Post[]; today: string | null }) {
+  const items = highlights(list, today);
   return (
     <section className="mt-4">
       <h2 className={cardTitle}>Platform insights</h2>
@@ -310,6 +312,65 @@ function PlatformInsights({ list }: { list: Post[] }) {
             </div>
           ))}
         </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------- G. What's working (pillars, formats, topics vs your usual) ---------- */
+
+function WhatsWorking({ list, today }: { list: Post[]; today: string | null }) {
+  const w = useMemo(() => whatsWorking(list, today), [list, today]);
+  const cards: { title: string; d: Dimension; what: string }[] = [
+    { title: "Pillars", d: w.pillars, what: "pillar" },
+    { title: "Formats", d: w.formats, what: "format" },
+    { title: "Topics", d: w.topics, what: "topics" },
+  ];
+  return (
+    <section className="mt-4" aria-labelledby="whats-working">
+      <h2 id="whats-working" className={cardTitle}>What&apos;s working</h2>
+      <p className="-mt-2 mb-3 text-xs text-muted">
+        Each post compared with your usual engagement rate on its own platform. Posts count once they&apos;re {MIN_AGE} days old; groups need {MIN_GROUP} posts.
+      </p>
+      {w.compared === 0 ? (
+        <Empty text={`Not enough posts yet: this needs at least ${MIN_PLATFORM} posts on one platform that are ${MIN_AGE}+ days old and have reach.`} />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {cards.map(({ title, d, what }) => (
+            <div key={title} className="min-w-0 rounded-[20px] bg-white px-4 py-3 ring-1 ring-navy/[0.07]">
+              <h3 className="mb-1 font-serif text-lg">{title}</h3>
+              {d.groups.length === 0 ? (
+                <p className="py-2 text-sm text-muted">No group has {MIN_GROUP} posts yet.</p>
+              ) : (
+                <ol className="divide-y divide-navy/10">
+                  {d.groups.map((g) => (
+                    <li key={g.name} className="flex items-center justify-between gap-3 py-2 text-sm">
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium" title={g.name}>{g.name}</span>
+                        <span className="text-xs text-muted">{g.posts} posts · {Math.round(g.share * 100)}% of compared</span>
+                      </span>
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="font-medium tabular-nums" aria-label={`${g.medianLift.toFixed(1)} times your usual rate`}>{g.medianLift.toFixed(1)}×</span>
+                        <Badge color={g.confidence === "consistent" ? "bg-mint" : "bg-peach"}>{g.confidence === "consistent" ? "Consistent" : "Early signal"}</Badge>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <p className="mt-1 text-xs text-muted">
+                {d.hidden > 0 && <>{d.hidden} more with fewer than {MIN_GROUP} posts. </>}
+                {d.covered < w.compared && <>{w.compared - d.covered} of {w.compared} compared posts have no {what} yet.</>}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      {(w.excludedPlatforms.length > 0 || w.tooRecent > 0 || w.noDate > 0) && (
+        <p className="mt-2 text-xs text-muted">
+          {w.excludedPlatforms.map((x) => `${x.platform} isn't compared yet (${x.posts} of ${MIN_PLATFORM} posts needed). `).join("")}
+          {w.tooRecent > 0 && `${w.tooRecent} newer post${w.tooRecent === 1 ? "" : "s"} will count once ${MIN_AGE} days old. `}
+          {w.noDate > 0 && `${w.noDate} post${w.noDate === 1 ? " has" : "s have"} no published date.`}
+        </p>
       )}
     </section>
   );

@@ -24,6 +24,7 @@ type Store = {
   lastDeleted: LastDeleted | null; // the current recovery copy, if one exists and is readable
   // Performance reminders, worked out once here and shared. Empty until the browser date is known.
   reminders: ReminderSummary;
+  today: string | null; // the browser's local date; null until the page has loaded
   restoreLastDeleted: () => { ok: true; message: string } | { ok: false; error: string };
   savePublication: (contentId: string, p: Publication) => void;
   saveAsset: (a: Asset) => void;
@@ -190,7 +191,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, reminders, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
+    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, reminders, today, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
       {children}
     </Ctx.Provider>
   );

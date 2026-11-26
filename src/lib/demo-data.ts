@@ -1,4 +1,4 @@
-import type { Asset, ContentItem, Metrics, Platform, Publication, Status } from "./types";
+import type { Asset, ContentItem, Format, Metrics, Platform, Publication, Status } from "./types";
 
 // DEMO DATA - sample content for preview only. Every number here is marked
 // metricsSource "demo" and is never shown as real account performance.
@@ -8,6 +8,18 @@ const m = (reach: number, impressions: number | null, likes: number, comments: n
 });
 
 const code: Record<Platform, string> = { Instagram: "ig", TikTok: "tt", Threads: "th" };
+
+// Formats and topics on the samples, so the demo preview of "What's working" has something to show.
+const DEMO_FORMAT: Record<string, Format> = {
+  "c1-ig": "Carousel", "c1-tt": "Video", "c2-th": "Text", "c2-ig": "Photo",
+  "c3-ig": "Carousel", "c3-tt": "Video", "c3-th": "Text", "c9-ig": "Reel", "c9-tt": "Video",
+  "c4-th": "Text", "c4-ig": "Carousel", "c5-ig": "Reel", "c6-ig": "Photo", "c7-tt": "Video", "c8-th": "Text",
+};
+const DEMO_TAGS: Record<string, string[]> = {
+  c1: ["toddler play", "wooden toys"], c2: ["behind the scenes", "packing"], c3: ["gift guide", "toddler play"],
+  c9: ["sensory play", "toddler play"], c4: ["screen-free", "toddler play"], c5: ["sale"],
+  c6: ["customer story", "reading"], c7: ["puzzles"], c8: ["shipping"],
+};
 
 function pub(contentId: string, platform: Platform, status: Status, scheduledDate: string, caption: string, metrics: Metrics | null = null): Publication {
   return {
@@ -23,6 +35,7 @@ function pub(contentId: string, platform: Platform, status: Status, scheduledDat
     metricsSource: metrics ? "demo" : null,
     lastSyncedAt: null,
     snapshots: [],
+    format: DEMO_FORMAT[`${contentId}-${code[platform]}`], // last, where the app writes it
   };
 }
 
@@ -81,7 +94,8 @@ const DEMO_ITEMS: ContentItem[] = [
   },
 ];
 
-export const DEMO_CONTENT: ContentItem[] = DEMO_ITEMS.map((c) => ({ ...c, isDemo: true }));
+// Field order matches what the loader produces (tags, then isDemo), so demo data reloads byte for byte.
+export const DEMO_CONTENT: ContentItem[] = DEMO_ITEMS.map((c) => ({ ...c, tags: DEMO_TAGS[c.id], isDemo: true }));
 
 export const DEMO_ASSETS: Asset[] = [
   { id: "a1", name: "Demo: Product photos folder", type: "Photo", url: "https://example.com/product-photos", tags: "products, demo" },

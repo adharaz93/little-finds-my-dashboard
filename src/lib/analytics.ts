@@ -1,6 +1,7 @@
 import { PLATFORMS, type ContentItem, type Platform } from "./types";
 import { isReal, type Post } from "./posts";
 import { engagement, engagementRate, hasRate } from "./utils";
+import { whatsWorking } from "./insights";
 
 // Which numbers a view may use. "real" = manual entries and synced data. "demo" = samples only.
 // The two are never mixed, so demo numbers can never be read as account performance.
@@ -128,7 +129,8 @@ export function comparison(content: ContentItem[], list: Post[]): ComparisonRow[
 }
 
 export type Highlight = { label: string; value: string; detail: string };
-export function highlights(list: Post[]): Highlight[] {
+// `today` is the browser's local date; without it the pillar highlight is left out.
+export function highlights(list: Post[], today: string | null = null): Highlight[] {
   if (!list.length) return [];
   const out: Highlight[] = [];
   const plat = PLATFORMS.map((pl) => ({ pl, t: totals(list.filter((p) => p.platform === pl)) })).filter((x) => x.t.posts > 0);
@@ -139,12 +141,10 @@ export function highlights(list: Post[]): Highlight[] {
   const topEng = [...plat].sort((a, b) => b.t.engagement - a.t.engagement)[0];
   out.push({ label: "Highest engagement platform", value: topEng.pl, detail: `${topEng.t.engagement.toLocaleString("en-US")} engagements, ${note}` });
 
-  const pillars = [...new Set(list.map((p) => p.pillar))].map((name) => ({ name, t: totals(list.filter((p) => p.pillar === name)) }));
-  // Rates only from posts with reach: a post without reach is unknown, not 0%.
-  const topPillar = pillars
-    .flatMap((x) => (x.t.avgRate == null ? [] : [{ ...x, rate: x.t.avgRate }]))
-    .sort((a, b) => b.rate - a.rate)[0];
-  if (topPillar) out.push({ label: "Best-performing pillar", value: topPillar.name, detail: `${topPillar.rate.toFixed(1)}% average engagement rate, ${topPillar.t.posts} post${topPillar.t.posts === 1 ? "" : "s"}` });
+  // Same rule as "What's working": lift against each platform's usual rate, posts at least a week
+  // old, and at least 3 posts, so this card can never contradict that table.
+  const topPillar = whatsWorking(list, today).pillars.groups[0];
+  if (topPillar) out.push({ label: "Best-performing pillar", value: topPillar.name, detail: `${topPillar.medianLift.toFixed(1)}× your usual engagement rate, ${topPillar.posts} posts` });
 
   const best = list.filter((p) => hasRate(p.metrics)).sort((a, b) => engagementRate(b.metrics) - engagementRate(a.metrics))[0];
   if (best) out.push({ label: "Best-performing content", value: best.title, detail: `${engagementRate(best.metrics).toFixed(1)}% engagement rate on ${best.platform}` });
