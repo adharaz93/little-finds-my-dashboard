@@ -12,7 +12,7 @@ const parse = (s: string) => {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
-const addDays = (s: string, n: number) => {
+export const addDays = (s: string, n: number) => {
   const d = parse(s);
   d.setDate(d.getDate() + n);
   return iso(d);
