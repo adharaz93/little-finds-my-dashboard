@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Insights from "./Insights";
+import InsightsRail from "./Insights";
 
 const ICONS: Record<string, string> = {
   dashboard: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
@@ -13,12 +13,12 @@ const ICONS: Record<string, string> = {
 };
 
 export const NAV = [
-  { href: "/", label: "Dashboard", icon: "dashboard" },
-  { href: "/calendar", label: "Calendar", icon: "calendar" },
-  { href: "/bank", label: "Content Bank", icon: "bank" },
-  { href: "/posting", label: "Posting", icon: "posting" },
-  { href: "/analytics", label: "Analytics", icon: "analytics" },
-  { href: "/assets", label: "Assets", icon: "assets" },
+  { href: "/", label: "Dashboard", short: "Home", icon: "dashboard" },
+  { href: "/calendar", label: "Calendar", short: "Calendar", icon: "calendar" },
+  { href: "/bank", label: "Content Bank", short: "Bank", icon: "bank" },
+  { href: "/posting", label: "Posting", short: "Posting", icon: "posting" },
+  { href: "/analytics", label: "Analytics", short: "Stats", icon: "analytics" },
+  { href: "/assets", label: "Assets", short: "Assets", icon: "assets" },
 ];
 
 function Icon({ name }: { name: string }) {
@@ -34,20 +34,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_280px]">
+    <div className="min-h-screen lg:grid lg:grid-cols-[232px_minmax(0,1fr)] xl:grid-cols-[232px_minmax(0,1fr)_320px]">
       {/* Sidebar (desktop) */}
       <aside className="sticky top-0 hidden h-screen flex-col bg-sidebar p-5 lg:flex">
         <p className="font-serif text-3xl leading-none">Little Finds <span className="italic text-muted">MY</span></p>
-        <p className="mb-10 mt-2 text-[11px] uppercase tracking-[0.22em] text-muted">Content Studio</p>
-        <nav className="flex flex-col gap-1">
+        <p className="mb-10 mt-2 text-xs uppercase tracking-[0.22em] text-muted">Content Studio</p>
+        <nav className="flex flex-col gap-1" aria-label="Main">
           {NAV.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors ${
-                active(n.href) ? "bg-white font-medium shadow-soft" : "text-muted hover:bg-white/60"
+              aria-current={active(n.href) ? "page" : undefined}
+              className={`relative flex min-h-11 items-center gap-3 rounded-2xl px-4 py-2.5 text-sm transition-colors ${
+                active(n.href) ? "bg-white font-medium" : "text-muted hover:bg-white/60 hover:text-navy"
               }`}
             >
+              {active(n.href) && <span className="absolute left-0 top-2.5 bottom-2.5 w-0.5 rounded-full bg-navy" aria-hidden />}
               <Icon name={n.icon} />
               {n.label}
             </Link>
@@ -56,26 +58,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main workspace */}
-      <main className="min-w-0 px-4 pb-28 pt-6 sm:px-8 lg:pb-10">
-        <p className="mb-4 font-serif text-xl lg:hidden">Little Finds MY</p>
+      <main className="mx-auto w-full min-w-0 max-w-6xl px-4 pb-32 pt-6 sm:px-8 lg:pb-10">
+        <p className="mb-4 font-serif text-2xl lg:hidden">Little Finds <span className="italic text-muted">MY</span></p>
         {children}
+        {/* The one place the demo notice lives. */}
+        <footer className="mt-12 border-t border-navy/10 pt-4 text-xs text-muted">
+          Demo data: the sample items are placeholders. Everything you add or edit is saved only in this browser.
+        </footer>
       </main>
 
-      {/* Insights (wide screens) */}
-      <Insights />
+      {/* Insights rail (xl and up) */}
+      <InsightsRail />
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around bg-sidebar/95 shadow-soft px-1 py-2 backdrop-blur lg:hidden">
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-navy/10 bg-sidebar/95 px-1 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
+      >
         {NAV.map((n) => (
           <Link
             key={n.href}
             href={n.href}
-            className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1 text-[10px] ${
-              active(n.href) ? "bg-white font-medium shadow-soft" : "text-muted"
+            aria-current={active(n.href) ? "page" : undefined}
+            className={`flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] ${
+              active(n.href) ? "bg-white font-medium text-navy" : "text-muted"
             }`}
           >
             <Icon name={n.icon} />
-            {n.label.split(" ").pop()}
+            {n.short}
           </Link>
         ))}
       </nav>

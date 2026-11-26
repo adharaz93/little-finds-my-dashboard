@@ -3,18 +3,17 @@ import Link from "next/link";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { STATUSES, type ContentItem } from "@/lib/types";
-import { engagementRate, formatDate, num, pct, statusColor } from "@/lib/utils";
+import { formatDate, statusBar } from "@/lib/utils";
 import ContentForm, { blankContent } from "@/components/ContentForm";
-import WeeklyChart from "@/components/WeeklyChart";
-import { Button, Card, DemoNote, Empty, PageHeader, StatCard, StatusBadge } from "@/components/ui";
+import { CollapsibleInsights, TodoCard, TopContentCard, compactCard } from "@/components/Insights";
+import { Button, Empty, PageHeader, StatCard, StatusBadge } from "@/components/ui";
 
+// Compact overview grid: KPIs, then Pipeline | Coming up, then To do | Top performing (40 / 60).
 export default function Dashboard() {
   const { content, resetDemo } = useStore();
   const [editing, setEditing] = useState<ContentItem | null>(null);
 
-  const posted = content.filter((c) => c.metrics);
-  const avgER = posted.length ? posted.reduce((s, c) => s + engagementRate(c.metrics), 0) / posted.length : 0;
-  const totalReach = posted.reduce((s, c) => s + (c.metrics?.reach ?? 0), 0);
+  const count = (...s: string[]) => content.filter((c) => s.includes(c.status)).length;
   const upcoming = content
     .filter((c) => c.status !== "Posted")
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -23,64 +22,64 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader
+        enter
         title="Good to see you"
         subtitle="Your content at a glance."
         action={<Button onClick={() => setEditing(blankContent())}>+ New content</Button>}
       />
-      <DemoNote />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total content" value={String(content.length)} tone="bg-baby" />
-        <StatCard label="Posted" value={String(content.filter((c) => c.status === "Posted").length)} tone="bg-mint" />
-        <StatCard label="Total reach" value={num(totalReach)} tone="bg-peach" />
-        <StatCard label="Avg engagement" value={pct(avgER)} tone="bg-pink" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard compact label="Total content" value={String(content.length)} tone="bg-baby" />
+        <StatCard compact label="In the works" value={String(count("Idea", "Drafting"))} tone="bg-peach" />
+        <StatCard compact label="Lined up" value={String(count("Ready", "Scheduled"))} tone="bg-mint" />
+        <StatCard compact label="Posted" value={String(count("Posted"))} tone="bg-posted" />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="mb-3 font-serif text-2xl">Pipeline</h2>
-          <div className="space-y-2">
+      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
+        <section className={`${compactCard} md:col-span-2`}>
+          <h2 className="mb-2 font-serif text-xl">Pipeline</h2>
+          <div className="space-y-2.5">
             {STATUSES.map((s) => {
-              const n = content.filter((c) => c.status === s).length;
+              const n = count(s);
               return (
                 <div key={s} className="flex items-center gap-3 text-sm">
-                  <span className="w-24">{s}</span>
-                  <div className="h-3 flex-1 rounded-full bg-cream">
-                    <div className={`h-3 rounded-full ${statusColor[s]}`} style={{ width: `${content.length ? (n / content.length) * 100 : 0}%` }} />
+                  <span className="w-20 shrink-0">{s}</span>
+                  <div className="h-2.5 min-w-0 flex-1 rounded-full bg-cream">
+                    <div className={`h-2.5 rounded-full ${statusBar[s]}`} style={{ width: `${content.length ? (n / content.length) * 100 : 0}%` }} />
                   </div>
-                  <span className="w-5 text-right">{n}</span>
+                  <span className="w-5 shrink-0 text-right tabular-nums">{n}</span>
                 </div>
               );
             })}
           </div>
-        </Card>
+        </section>
 
-        <Card>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-serif text-2xl">Coming up</h2>
-            <Link href="/calendar" className="text-sm underline">Calendar</Link>
+        <section className={`${compactCard} md:col-span-3`}>
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="font-serif text-xl">Coming up</h2>
+            <Link href="/calendar" className="link inline-flex min-h-10 items-center text-sm">Calendar</Link>
           </div>
           {upcoming.length === 0 && <Empty text="Nothing planned yet." />}
           <ul className="divide-y divide-navy/10">
             {upcoming.map((c) => (
               <li key={c.id}>
-                <button onClick={() => setEditing(c)} className="flex w-full items-center justify-between gap-2 py-2 text-left text-sm">
-                  <span><b>{formatDate(c.date)}</b> · {c.title}</span>
-                  <StatusBadge status={c.status} />
+                <button onClick={() => setEditing(c)} title={c.title} className="flex min-h-10 w-full items-center gap-3 py-1 text-left text-sm">
+                  <b className="w-14 shrink-0 font-semibold tabular-nums">{formatDate(c.date)}</b>
+                  <span className="min-w-0 flex-1 truncate">{c.title}</span>
+                  <span className="shrink-0"><StatusBadge status={c.status} /></span>
                 </button>
               </li>
             ))}
           </ul>
-        </Card>
+        </section>
+
+        <TodoCard className="md:col-span-2" />
+        <TopContentCard className="md:col-span-3" />
       </div>
 
-      <Card className="mt-4">
-        <h2 className="mb-1 font-serif text-2xl">Weekly performance</h2>
-        <p className="mb-4 text-xs text-muted">Reach per week, from the numbers you enter in Analytics.</p>
-        <WeeklyChart content={content} metric="reach" />
-      </Card>
+      <CollapsibleInsights />
 
-      <button onClick={() => confirm("Reset all data back to the demo samples?") && resetDemo()} className="mt-6 text-xs underline text-muted">
+      <button onClick={() => confirm("Reset all data back to the demo samples?") && resetDemo()} className="link mt-4 inline-flex min-h-11 items-center text-xs text-muted">
         Reset demo data
       </button>
       {editing && <ContentForm item={editing} onClose={() => setEditing(null)} />}

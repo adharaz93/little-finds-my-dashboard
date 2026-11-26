@@ -3,10 +3,10 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { ASSET_TYPES, type Asset } from "@/lib/types";
 import { uid } from "@/lib/utils";
-import { Badge, Button, Card, DemoNote, Empty, Field, Input, Modal, PageHeader, Select } from "@/components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, btnClass } from "@/components/ui";
 
 const blank = (): Asset => ({ id: uid(), name: "", type: "Photo", url: "", tags: "" });
-const ICON: Record<string, string> = { Photo: "25A3", Video: "25B6", Design: "2726", Document: "2630" };
+const ICON: Record<string, string> = { Photo: "▣", Video: "▶", Design: "✦", Document: "☰" };
 const tone: Record<string, string> = { Photo: "bg-pink", Video: "bg-baby", Design: "bg-mint", Document: "bg-peach" };
 
 export default function AssetsPage() {
@@ -26,7 +26,6 @@ export default function AssetsPage() {
         subtitle="Keep links to your photos, videos and designs. Files stay where they are (Drive, Canva...)."
         action={<Button onClick={() => setEditing(blank())}>+ Add asset link</Button>}
       />
-      <DemoNote />
       <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_200px]">
         <Input placeholder="Search name or tag..." aria-label="Search" value={q} onChange={(e) => setQ(e.target.value)} />
         <Select aria-label="Type filter" value={type} onChange={(e) => setType(e.target.value)}>
@@ -44,7 +43,7 @@ export default function AssetsPage() {
             <h3 className="font-serif text-xl">{a.name}</h3>
             {a.tags && <p className="text-xs text-muted">{a.tags}</p>}
             <div className="mt-auto flex gap-2 pt-2">
-              <a href={a.url} target="_blank" rel="noreferrer" className="rounded-full bg-navy px-4 py-2 text-sm text-cream hover:bg-navy/85">Open link</a>
+              <a href={a.url} target="_blank" rel="noreferrer" className={btnClass("primary")}>Open link</a>
               <Button variant="ghost" onClick={() => setEditing(a)}>Edit</Button>
             </div>
           </Card>

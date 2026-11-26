@@ -34,7 +34,7 @@ export default function CalendarPage() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="flex rounded-full bg-white p-1 text-sm shadow-soft">
           {(["calendar", "list"] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={`rounded-full px-4 py-1 capitalize ${view === v ? "bg-baby font-medium" : "text-muted"}`}>
+            <button key={v} onClick={() => setView(v)} className={`min-h-10 rounded-full px-4 py-1 capitalize ${view === v ? "bg-baby font-medium text-navy" : "text-muted"}`}>
               {v}
             </button>
           ))}
@@ -65,13 +65,13 @@ export default function CalendarPage() {
               const date = `${ym.y}-${pad(ym.m + 1)}-${pad(day)}`;
               const items = filtered.filter((c) => c.date === date);
               return (
-                <div key={i} className="min-h-24 rounded-2xl bg-white shadow-soft p-1.5">
+                <div key={i} className="min-h-24 rounded-2xl bg-white p-1.5 shadow-soft ring-1 ring-navy/[0.07]">
                   <p className="mb-1 text-xs text-muted">{day}</p>
                   {items.map((c) => (
                     <button
                       key={c.id}
                       onClick={() => setEditing(c)}
-                      className={`mb-1 block w-full truncate rounded-lg px-1.5 py-0.5 text-left text-[11px] ${statusColor[c.status]}`}
+                      className={`mb-1 block w-full truncate rounded-lg px-1.5 py-0.5 text-left text-xs ring-1 ring-navy/10 ${statusColor[c.status]}`}
                       title={`${c.title} (${c.status})`}
                     >
                       {c.title}
@@ -86,7 +86,7 @@ export default function CalendarPage() {
         <div className="space-y-2">
           {filtered.length === 0 && <Empty text="No content matches." />}
           {[...filtered].sort((a, b) => a.date.localeCompare(b.date)).map((c) => (
-            <button key={c.id} onClick={() => setEditing(c)} className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white shadow-soft p-4 text-left">
+            <button key={c.id} onClick={() => setEditing(c)} className="lift flex w-full items-center justify-between gap-3 rounded-[20px] bg-white p-4 text-left shadow-soft ring-1 ring-navy/[0.07]">
               <span>
                 <b>{formatDate(c.date)}</b> · {c.title}
                 <span className="block text-xs text-muted">{c.platform} · {c.pillar}</span>

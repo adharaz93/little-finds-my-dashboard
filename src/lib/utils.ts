@@ -16,10 +16,20 @@ export function formatDate(d: string): string {
   return new Date(y, mo - 1, da).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+// One pastel per stage. Posted is a navy tint so it never reads as a second green.
 export const statusColor: Record<string, string> = {
   Idea: "bg-baby",
   Drafting: "bg-peach",
   Ready: "bg-mint",
   Scheduled: "bg-pink",
-  Posted: "bg-[#c4e4d2]",
+  Posted: "bg-posted",
+};
+
+// Solid versions for the pipeline bars.
+export const statusBar: Record<string, string> = {
+  Idea: "bg-baby",
+  Drafting: "bg-peach",
+  Ready: "bg-mint",
+  Scheduled: "bg-pink",
+  Posted: "bg-navy",
 };

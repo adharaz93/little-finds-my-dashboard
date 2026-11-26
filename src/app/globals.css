@@ -9,18 +9,100 @@
   --color-mint: #d9eee3;
   --color-peach: #f6dfcc;
   --color-navy: #26364a;
-  --color-muted: #69717c;
+  /* Posted: a cool tint of the brand navy, never a neutral grey. */
+  --color-posted: #d5deea;
+  --color-muted: #5a6573;
   --font-sans: var(--font-dm-sans);
   --font-serif: var(--font-dm-serif);
-  --shadow-soft: 0 1px 2px rgb(38 54 74 / 0.05), 0 6px 20px rgb(38 54 74 / 0.06);
+  --shadow-soft: 0 1px 2px rgb(38 54 74 / 0.04);
 }
 
 :root {
   color-scheme: light;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body {
-  background: #faf7f2;
-  color: #26364a;
+  background: var(--color-cream);
+  color: var(--color-navy);
   font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+/* Keyboard focus: one visible ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
+}
+
+/* Hover and press layer. Fine pointers only; nothing resizes a neighbour. */
+.btn,
+.lift {
+  transition:
+    transform 150ms var(--ease),
+    background-color 150ms var(--ease),
+    box-shadow 150ms var(--ease);
+}
+.btn:active {
+  transform: translateY(1px) scale(0.985);
+  transition-duration: 90ms;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+  .btn:active {
+    transform: translateY(1px) scale(0.985);
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgb(38 54 74 / 0.08);
+  }
+}
+
+/* Text links: a hairline that draws an ink line from the left. */
+.link {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size 150ms var(--ease);
+  text-decoration: underline;
+  text-decoration-color: rgb(38 54 74 / 0.25);
+  text-underline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .link:hover {
+    background-size: 100% 1px;
+  }
+}
+
+/* The dashboard title arrives once on load. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.enter {
+  animation: rise-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .lift,
+  .link {
+    transition: none;
+  }
+  .btn:hover,
+  .btn:active,
+  .lift:hover {
+    transform: none;
+  }
+  .enter {
+    animation: none;
+  }
 }

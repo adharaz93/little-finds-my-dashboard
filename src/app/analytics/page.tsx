@@ -4,7 +4,7 @@ import { useStore } from "@/lib/store";
 import type { ContentItem, Metrics } from "@/lib/types";
 import { engagementRate, formatDate, num, pct } from "@/lib/utils";
 import WeeklyChart from "@/components/WeeklyChart";
-import { Button, Card, DemoNote, Empty, Field, Input, Modal, PageHeader, StatCard } from "@/components/ui";
+import { Button, Card, Empty, Field, Input, Modal, PageHeader, StatCard } from "@/components/ui";
 
 const FIELDS: (keyof Metrics)[] = ["reach", "impressions", "likes", "comments", "shares", "saves", "clicks"];
 const ZERO: Metrics = { reach: 0, impressions: 0, likes: 0, comments: 0, shares: 0, saves: 0, clicks: 0 };
@@ -25,7 +25,6 @@ export default function AnalyticsPage() {
   return (
     <>
       <PageHeader title="Analytics" subtitle="Enter numbers from each platform by hand. Engagement is calculated for you." />
-      <DemoNote />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Reach" value={num(sum("reach"))} tone="bg-baby" />
         <StatCard label="Impressions" value={num(sum("impressions"))} tone="bg-mint" />
@@ -63,7 +62,7 @@ export default function AnalyticsPage() {
                   </div>
                   <span className="w-12 text-right">{c.metrics ? pct(er) : "-"}</span>
                 </div>
-                <Button variant="ghost" className="!py-1" onClick={() => open(c)}>{c.metrics ? "Edit data" : "Add data"}</Button>
+                <Button variant="ghost" size="sm" onClick={() => open(c)}>{c.metrics ? "Edit data" : "Add data"}</Button>
               </div>
             );
           })}

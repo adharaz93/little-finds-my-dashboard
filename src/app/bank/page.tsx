@@ -4,7 +4,7 @@ import { useStore } from "@/lib/store";
 import { PILLARS, PLATFORMS, STATUSES, type ContentItem } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import ContentForm, { blankContent } from "@/components/ContentForm";
-import { Badge, Button, Card, Empty, Input, PageHeader, Select, StatusBadge } from "@/components/ui";
+import { Button, Card, Empty, Input, PageHeader, PillarBadge, PlatformBadge, Select, StatusBadge } from "@/components/ui";
 
 export default function BankPage() {
   const { content, saveContent } = useStore();
@@ -52,7 +52,7 @@ export default function BankPage() {
             </div>
             <h3 className="font-serif text-xl leading-snug">{c.title}</h3>
             {c.caption && <p className="line-clamp-3 text-sm text-muted">{c.caption}</p>}
-            <div className="flex flex-wrap gap-1.5"><Badge color="bg-baby">{c.platform}</Badge><Badge color="bg-peach">{c.pillar}</Badge></div>
+            <div className="flex flex-wrap gap-1.5"><PlatformBadge>{c.platform}</PlatformBadge><PillarBadge>{c.pillar}</PillarBadge></div>
             <div className="mt-auto flex items-center gap-2 pt-2">
               <Select
                 aria-label="Change status"
