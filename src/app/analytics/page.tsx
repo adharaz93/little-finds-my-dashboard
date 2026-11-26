@@ -9,9 +9,10 @@ import {
 } from "@/lib/analytics";
 import type { ConnectionState, SyncResult } from "@/lib/integrations/types";
 import {
-  METRIC_ORDER, OPTIONAL_METRICS, metricLabel, parseMetricDraft, sameMetrics, toMetricDraft,
+  METRIC_ORDER, OPTIONAL_METRICS, localToday, metricLabel, parseMetricDraft, sameMetrics, toMetricDraft,
   type MetricDraft, type MetricKey,
 } from "@/lib/capture";
+import { addCapture } from "@/lib/snapshots";
 import { engagement, engagementRate, formatDate, hasRate, num, pct, platformColor } from "@/lib/utils";
 import TrendChart from "@/components/TrendChart";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, PlatformBadge, Select } from "@/components/ui";
@@ -469,16 +470,11 @@ function MetricsModal({ post, onClose }: { post: Post; onClose: () => void }) {
           }
           const metrics = parsed.metrics;
           // Numbers on demo samples stay demo. Numbers on the user's own content are "manual":
-          // typed by hand, never labelled as synced. Each save keeps a dated snapshot.
+          // typed by hand, never labelled as synced. Each save adds a capture dated today (local);
+          // the publication's current numbers then follow its latest capture (lib/snapshots.ts).
           if (!sameMetrics(post.metrics, metrics)) {
             const source = post.content.isDemo ? "demo" : "manual";
-            const at = new Date().toISOString();
-            savePublication(post.contentId, {
-              ...post.publication,
-              metrics,
-              metricsSource: source,
-              snapshots: [...post.publication.snapshots, { at, source, metrics }],
-            });
+            savePublication(post.contentId, addCapture(post.publication, { metrics, source, capturedOn: localToday() }));
           }
           onClose();
         }}

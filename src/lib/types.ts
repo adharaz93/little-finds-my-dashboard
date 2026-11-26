@@ -20,8 +20,18 @@ export type Metrics = {
   clicks?: number | null; // null or missing = not reported
 };
 
-// A dated copy of a publication's numbers, so trends can use history once syncing exists.
-export type MetricSnapshot = { at: string; source: MetricSource; metrics: Metrics };
+// One capture of a publication's numbers. All fields after `metrics` are optional, so snapshots
+// saved before they existed still load unchanged. Rules live in lib/snapshots.ts.
+export type MetricSnapshot = {
+  id?: string; // stable id; legacy snapshots get one the next time their publication's history is written
+  at: string; // when the numbers were entered (UTC ISO). Never changed by an edit.
+  capturedOn?: string; // local YYYY-MM-DD the numbers were read on the platform; missing = date unknown
+  source: MetricSource;
+  metrics: Metrics;
+  note?: string; // optional: where the numbers came from, e.g. "IG Insights"
+  edits?: { at: string; metrics: Metrics }[]; // earlier values, oldest first; `at` = when each edit replaced them
+  deleted?: true; // removed by the user: hidden from current numbers, never erased
+};
 
 // How a post was published. Stored per platform, since one idea can be a Reel on Instagram
 // and a text post on Threads. Missing means unknown: left out of format analysis, never guessed.

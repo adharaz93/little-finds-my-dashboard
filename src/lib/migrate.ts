@@ -1,6 +1,7 @@
 import type { Asset, ContentItem, Format, LegacyContentItem, MetricSnapshot, MetricSource, Metrics, Platform, Publication, Status } from "./types";
 import { ASSET_TYPES, FORMATS, PLATFORMS, STATUSES } from "./types";
 import { cleanTags } from "./utils";
+import { isValidDate } from "./capture";
 import { DEMO_ASSETS, DEMO_CONTENT } from "./demo-data";
 
 // Storage keys. v1 is never written again and never deleted: it stays as a backup.
@@ -82,6 +83,61 @@ export function readMetrics(x: unknown): Metrics | null | typeof INVALID {
 
 /* ---------- v2 records ---------- */
 
+// A snapshot needs `at`, a known source and readable metrics; without them it is set aside whole.
+// The optional P1b fields are checked one by one: an unreadable one is set aside on its own and the
+// snapshot is kept (e.g. a bad capturedOn leaves the snapshot with its date unknown).
+// Nothing is added here: ids are assigned on the next write (lib/snapshots.ts), never on load.
+function readSnapshot(s: unknown, contentId: string, publicationId: string, q: Quarantined[]): MetricSnapshot | null {
+  const sm = isObj(s) ? readMetrics(s.metrics) : INVALID;
+  if (!isObj(s) || typeof s.at !== "string" || !isSource(s.source) || !sm || sm === INVALID) {
+    q.push({ kind: "snapshot", reason: "unreadable snapshot", contentId, publicationId, value: s });
+    return null;
+  }
+  const field = (name: string, reason: string, value: unknown) =>
+    q.push({ kind: "field", field: `snapshot.${name}`, reason, contentId, publicationId, value: { snapshotAt: s.at, [name]: value } });
+
+  // Fields are updated in place, so valid data keeps its exact key order and re-saves byte for byte.
+  // Unknown extra fields are kept.
+  const snap = { ...s, at: s.at, source: s.source, metrics: sm } as MetricSnapshot & Obj;
+
+  if (!isId(s.id)) {
+    delete snap.id;
+    if (!blank(s.id)) field("id", "unreadable snapshot id", s.id);
+  }
+
+  if (!isValidDate(s.capturedOn)) {
+    delete snap.capturedOn;
+    if (!blank(s.capturedOn)) field("capturedOn", `invalid capture date ${JSON.stringify(s.capturedOn)}`, s.capturedOn);
+  }
+
+  if (typeof s.note !== "string" || s.note === "") {
+    delete snap.note;
+    if (s.note != null && typeof s.note !== "string") field("note", "unreadable note", s.note);
+  }
+
+  if (Array.isArray(s.edits)) {
+    const edits: NonNullable<MetricSnapshot["edits"]> = [];
+    for (const e of s.edits) {
+      const em = isObj(e) ? readMetrics(e.metrics) : INVALID;
+      if (isObj(e) && typeof e.at === "string" && em && em !== INVALID) edits.push({ ...e, at: e.at, metrics: em });
+      else field("edits", "unreadable edit entry", e);
+    }
+    if (edits.length) snap.edits = edits;
+    else delete snap.edits;
+  } else {
+    delete snap.edits;
+    if (s.edits != null) field("edits", "edit history is not a list", s.edits);
+  }
+
+  if (s.deleted !== true) {
+    delete snap.deleted;
+    // Anything other than true/false/missing is unclear: keep the snapshot visible, set the value aside.
+    if (s.deleted != null && s.deleted !== false) field("deleted", "unreadable deleted flag", s.deleted);
+  }
+
+  return snap;
+}
+
 function readPublication(x: unknown, contentId: string, q: Quarantined[]): Publication | null {
   const bad = (reason: string) => (q.push({ kind: "publication", reason, contentId, value: x }), null);
   if (!isObj(x)) return bad("not an object");
@@ -100,9 +156,8 @@ function readPublication(x: unknown, contentId: string, q: Quarantined[]): Publi
 
   const snapshots: MetricSnapshot[] = [];
   for (const s of Array.isArray(x.snapshots) ? x.snapshots : []) {
-    const sm = isObj(s) ? readMetrics(s.metrics) : INVALID;
-    if (isObj(s) && typeof s.at === "string" && isSource(s.source) && sm && sm !== INVALID) snapshots.push({ ...s, at: s.at, source: s.source, metrics: sm });
-    else q.push({ kind: "snapshot", reason: "unreadable snapshot", contentId, publicationId: x.id, value: s });
+    const snap = readSnapshot(s, contentId, x.id, q);
+    if (snap) snapshots.push(snap);
   }
 
   const pub: Publication = {
