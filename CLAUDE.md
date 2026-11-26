@@ -25,7 +25,7 @@ Stop and ask only if scope, product behaviour, security, secrets, destructive op
 - Preserve all pre-existing modifications and untracked files. Never clean, reset, stash, restore, delete or overwrite them.
 - Never use `git add -A`, `git add .`, or `git commit -a`.
 - Stage exact task files only; inspect `git diff --cached --name-status` before commit.
-- Never stage `next.config.ts` unless explicitly approved.
+- Never modify or stage `next.config.ts` unless explicitly approved.
 - Preserve `audit-data-model.txt` and `audit-integrations.txt`; do not edit or stage by default.
 - Never commit secrets, `.env*`, credentials, local data, browser profiles or generated build output.
 - If a protected file changes during the task, stop before commit. Do not revert it.
@@ -34,7 +34,7 @@ Stop and ask only if scope, product behaviour, security, secrets, destructive op
 - If push fails, report the state; do not blindly retry or amend.
 
 ## Protected local files
-- `next.config.ts` (including its pre-existing working-tree change)
+- `next.config.ts` (committed in `eab88ca`; do not modify or stage it without explicit approval)
 - `audit-data-model.txt`
 - `audit-integrations.txt`
 - `README-SETUP.txt` (setup-pack instructions; kept local)
