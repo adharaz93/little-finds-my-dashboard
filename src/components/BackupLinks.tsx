@@ -1,9 +1,10 @@
 "use client";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { readBackup } from "@/lib/migrate";
 import { today } from "@/lib/posts";
 import { lastDeletedLabel } from "@/lib/recovery";
+import { lastExportLabel, readLastExport, writeLastExport } from "@/lib/exportInfo";
 
 const linkClass = "link inline-flex min-h-11 items-center text-xs text-muted";
 
@@ -12,14 +13,31 @@ const linkClass = "link inline-flex min-h-11 items-center text-xs text-muted";
 export default function BackupLinks() {
   const { content, assets, exportData, importBackup, lastDeleted, restoreLastDeleted } = useStore();
   const file = useRef<HTMLInputElement>(null);
+  // Last successful export. Read in the browser after load (undefined until then, so the
+  // prerendered HTML and the first render match); null means never.
+  const [lastExport, setLastExport] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser storage is only readable after load
+    setLastExport(readLastExport(localStorage));
+  }, []);
 
   const download = () => {
-    const url = URL.createObjectURL(new Blob([exportData()], { type: "application/json" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `little-finds-backup-${today()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // The time is recorded only once the file was built and handed to the browser without error.
+    // (Browsers don't tell pages when a Save dialog is cancelled, so that can't be detected.)
+    try {
+      const url = URL.createObjectURL(new Blob([exportData()], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `little-finds-backup-${today()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("The backup couldn't be created, so nothing was exported. Your data is unchanged.");
+      return;
+    }
+    const at = new Date().toISOString();
+    writeLastExport(localStorage, at); // if storage refuses, the label still updates for this session
+    setLastExport(at);
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +62,9 @@ export default function BackupLinks() {
   return (
     <>
       <button onClick={download} className={linkClass}>Export backup</button>
+      {lastExport !== undefined && (
+        <span className="inline-flex min-h-11 items-center text-xs text-muted" aria-live="polite">{lastExportLabel(lastExport)}</span>
+      )}
       <button onClick={() => file.current?.click()} className={linkClass}>Import backup</button>
       {/* Shown only when a readable recovery copy exists. */}
       {lastDeleted && (
