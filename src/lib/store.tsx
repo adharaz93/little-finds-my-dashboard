@@ -6,6 +6,9 @@ import { KEY_BEFORE_IMPORT, KEY_BEFORE_RESET, KEY_V2, loadState, serialize, type
 import { flattenPosts, type Post } from "./posts";
 import { EMPTY_REMINDERS, dueCheckpoints, type ReminderSummary } from "./reminders";
 import { localToday } from "./capture";
+import { EMPTY_PREFS, dismiss as dismissPref, readPrefs, writePrefs, type Prefs } from "./prefs";
+import { ideaContent, withCrossPost, type Suggestion } from "./suggestions";
+import { uid } from "./utils";
 import { KEY_LAST_DELETED, commitRecoveryCopy, contentDeletionRecord, planRestore, publicationRemovalRecord, readLastDeleted, type LastDeleted } from "./recovery";
 
 // What the user should know about storage: load problems, and whether the last save worked.
@@ -25,6 +28,10 @@ type Store = {
   // Performance reminders, worked out once here and shared. Empty until the browser date is known.
   reminders: ReminderSummary;
   today: string | null; // the browser's local date; null until the page has loaded
+  prefs: Prefs; // dismissed suggestions (own key, not in backups)
+  dismissSuggestion: (id: string) => void;
+  // Adds the suggested Idea (or the extra platform) through the safe save, then hides the suggestion.
+  acceptSuggestion: (s: Suggestion) => { ok: true; message: string } | { ok: false; error: string };
   restoreLastDeleted: () => { ok: true; message: string } | { ok: false; error: string };
   savePublication: (contentId: string, p: Publication) => void;
   saveAsset: (a: Asset) => void;
@@ -60,6 +67,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // The visitor's local date. Null on the server and the first browser render (so the HTML matches),
   // set after the page loads and refreshed when the tab becomes visible again. No timers.
   const [today, setToday] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<Prefs>(EMPTY_PREFS);
   // After a restore, the recovery copy is cleared only once the restored data has been saved.
   const clearCopyAfterSave = useRef(false);
   const restoring = useRef(false);
@@ -74,6 +82,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setStorage({ notices: r.notices, saveError: null, savingDisabled: !r.canWrite });
     setLastDeleted(readLastDeleted(localStorage)); // read only: an unreadable copy is ignored, never changed
     setToday(localToday());
+    setPrefs(readPrefs(localStorage));
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -173,6 +182,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setContent(structuredClone(DEMO_CONTENT));
     setAssets(DEMO_ASSETS);
   }, [content, assets]);
+  const dismissSuggestion = useCallback(
+    (id: string) => {
+      const day = today ?? localToday();
+      setPrefs((p) => {
+        const next = dismissPref(p, id, day);
+        writePrefs(localStorage, next); // if storage refuses, it stays hidden for this session
+        return next;
+      });
+    },
+    [today],
+  );
+  const acceptSuggestion = useCallback(
+    (sg: Suggestion): { ok: true; message: string } | { ok: false; error: string } => {
+      const a = sg.action;
+      let r: Result;
+      let message: string;
+      if (a.type === "new") {
+        const item = ideaContent(a.spec, uid);
+        r = saveContentSafely(item);
+        message = `Added “${item.title}” to Content Bank as an idea.`;
+      } else if (a.type === "crosspost") {
+        const item = content.find((c) => c.id === a.contentId);
+        const next = item && withCrossPost(item, a.platform, a.scheduledDate, uid);
+        if (!item || !next) return { ok: false, error: "That post has changed since this suggestion was made, so nothing was added." };
+        r = saveContentSafely(next);
+        message = `Added a ${a.platform} idea to “${item.title}”.`;
+      } else return { ok: false, error: "This suggestion has no action to add." };
+      if (!r.ok) return r;
+      dismissSuggestion(sg.id);
+      return { ok: true, message };
+    },
+    [content, saveContentSafely, dismissSuggestion],
+  );
   const exportData = useCallback(() => serialize(content, assets, quarantine.current), [content, assets]);
   const importBackup = useCallback(
     (b: Backup) => {
@@ -191,7 +233,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, reminders, today, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
+    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, reminders, today, prefs, dismissSuggestion, acceptSuggestion, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
       {children}
     </Ctx.Provider>
   );

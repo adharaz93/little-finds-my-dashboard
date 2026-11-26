@@ -12,6 +12,7 @@ import { MIN_AGE, MIN_GROUP, MIN_PLATFORM, whatsWorking, type Dimension } from "
 import { engagement, engagementRate, formatDate, hasRate, num, pct, platformColor } from "@/lib/utils";
 import TrendChart from "@/components/TrendChart";
 import PerformancePanel, { SOURCE_BADGE } from "@/components/PerformancePanel";
+import Suggestions from "@/components/Suggestions";
 import { Badge, Button, Card, Empty, Input, PageHeader, PlatformBadge, Select } from "@/components/ui";
 
 const RANGES = [
@@ -106,6 +107,7 @@ export default function AnalyticsPage() {
 
           <PlatformInsights list={current} today={today} />
           <WhatsWorking list={current} today={today} />
+          <Suggestions variant="full" view={view} />
         </>
       )}
 

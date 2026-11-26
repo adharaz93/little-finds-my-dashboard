@@ -33,7 +33,8 @@ test("Dashboard To-do counts, without double counting", async ({ page }) => {
 test("Insights rail shows the same counts", async ({ page }, info) => {
   test.skip(!isDesktop(info), "the rail is visible from 1280 px");
   await page.goto("/");
-  const rail = page.locator("aside").filter({ hasText: "Pending tasks" });
+  // The Pending tasks section only: the rail also holds other lists (e.g. Suggestions).
+  const rail = page.locator("aside section").filter({ hasText: "Pending tasks" });
   await expect.poll(async () => (await rail.locator("li").allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim())).toEqual(START);
 });
 

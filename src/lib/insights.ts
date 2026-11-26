@@ -26,8 +26,10 @@ export type Dimension = {
   hidden: number; // groups with fewer than MIN_GROUP posts
   covered: number; // compared posts that have this attribute (format / topics / pillar)
 };
+export type Scored = { post: Post; lift: number; rate: number };
 export type WhatsWorking = {
   compared: number; // posts with a lift
+  scored: Scored[]; // every compared post with its lift (used by suggestions)
   tooRecent: number; // with reach, but younger than MIN_AGE days
   noDate: number; // with reach, but no valid published date (age unknown)
   excludedPlatforms: { platform: Platform; posts: number }[]; // fewer than MIN_PLATFORM eligible posts
@@ -44,8 +46,6 @@ export function median(xs: readonly number[]): number {
 }
 
 export const confidenceFor = (n: number): Confidence | null => (n < MIN_GROUP ? null : n < CONSISTENT ? "early" : "consistent");
-
-type Scored = { post: Post; lift: number; rate: number };
 
 function dimension(scored: readonly Scored[], keys: (p: Post) => string[]): Dimension {
   const byKey = new Map<string, Scored[]>();
@@ -81,7 +81,7 @@ function dimension(scored: readonly Scored[], keys: (p: Post) => string[]): Dime
 // browser's local date; with no valid date nothing can be compared.
 export function whatsWorking(list: readonly Post[], today: string | null): WhatsWorking {
   const empty: Dimension = { groups: [], hidden: 0, covered: 0 };
-  const result: WhatsWorking = { compared: 0, tooRecent: 0, noDate: 0, excludedPlatforms: [], pillars: empty, formats: empty, topics: empty };
+  const result: WhatsWorking = { compared: 0, scored: [], tooRecent: 0, noDate: 0, excludedPlatforms: [], pillars: empty, formats: empty, topics: empty };
   if (!isValidDate(today)) return result;
 
   const eligible: Post[] = [];
@@ -107,6 +107,7 @@ export function whatsWorking(list: readonly Post[], today: string | null): Whats
   }
 
   result.compared = scored.length;
+  result.scored = scored;
   result.pillars = dimension(scored, (p) => [p.pillar]);
   result.formats = dimension(scored, (p) => (p.publication.format ? [p.publication.format] : []));
   result.topics = dimension(scored, (p) => p.content.tags ?? []);

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { isReal } from "@/lib/posts";
 import { buildTasks } from "@/lib/tasks";
+import Suggestions from "./Suggestions";
 import { engagementRate, hasRate, num, pct } from "@/lib/utils";
 
 const label = "text-xs font-medium uppercase tracking-wider text-muted";
@@ -71,7 +72,7 @@ export function TopContentCard({ className = "" }: { className?: string }) {
   );
 }
 
-// The four rail sections: Overall performance (all real data, not one week), Upcoming Content, Top Performing Posts, Pending Tasks.
+// The rail sections: Overall performance (all real data, not one week), Upcoming Content, Top Performing Posts, Suggestions, Pending Tasks.
 function RailBody() {
   const { top, avg, reach, nextUp, tasks, hasReal } = useInsights();
   return (
@@ -121,6 +122,11 @@ function RailBody() {
             </li>
           ))}
         </ol>
+      </section>
+
+      <section className="rounded-[20px] bg-white p-4 shadow-soft ring-1 ring-navy/[0.07]">
+        <p className={label}>Suggestions</p>
+        <Suggestions variant="rail" limit={3} />
       </section>
 
       <section className="rounded-[20px] bg-mint/60 p-4">
