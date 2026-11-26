@@ -7,6 +7,7 @@ import { addCapture, editCapture, ensureSnapshotIds, latestSnapshot, removeCaptu
 import { dayN, dayNLabel, displayOrder, editDiffs, findDuplicate, type HistoryEntry } from "@/lib/history";
 import { engagementRate, formatDate, hasRate, num, pct } from "@/lib/utils";
 import CaptureForm, { type CaptureValues } from "./CaptureForm";
+import CaptureTimeline from "./CaptureTimeline";
 import { Badge, Button, Modal, PlatformBadge, StatusBadge } from "./ui";
 
 // Where a set of numbers came from, as a badge. Shared with Analytics.
@@ -109,6 +110,8 @@ export default function PerformancePanel({ contentId, publicationId, onClose }: 
         )}
         {beforeHistory && <p className="mt-2 text-xs text-muted">These numbers were recorded before history was kept. They&apos;ll be saved to history with your next capture.</p>}
       </section>
+
+      <CaptureTimeline pub={pub} />
 
       {mode.kind === "add" ? (
         <section aria-label="Add capture" className="mb-4 rounded-2xl bg-white p-3 ring-1 ring-navy/10">

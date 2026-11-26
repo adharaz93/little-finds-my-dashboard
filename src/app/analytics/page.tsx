@@ -8,7 +8,8 @@ import {
   type DataView, type Range, type Totals,
 } from "@/lib/analytics";
 import type { ConnectionState, SyncResult } from "@/lib/integrations/types";
-import { MIN_AGE, MIN_GROUP, MIN_PLATFORM, whatsWorking, type Dimension } from "@/lib/insights";
+import { MIN_AGE, MIN_GROUP, MIN_PLATFORM, whatsWorking, type Basis, type Dimension } from "@/lib/insights";
+import { DAY7_FROM, DAY7_TO } from "@/lib/history";
 import { engagement, engagementRate, formatDate, hasRate, num, pct, platformColor } from "@/lib/utils";
 import TrendChart from "@/components/TrendChart";
 import PerformancePanel, { SOURCE_BADGE } from "@/components/PerformancePanel";
@@ -322,7 +323,8 @@ function PlatformInsights({ list, today }: { list: Post[]; today: string | null 
 /* ---------- G. What's working (pillars, formats, topics vs your usual) ---------- */
 
 function WhatsWorking({ list, today }: { list: Post[]; today: string | null }) {
-  const w = useMemo(() => whatsWorking(list, today), [list, today]);
+  const [basis, setBasis] = useState<Basis>("latest");
+  const w = useMemo(() => whatsWorking(list, today, basis), [list, today, basis]);
   const cards: { title: string; d: Dimension; what: string }[] = [
     { title: "Pillars", d: w.pillars, what: "pillar" },
     { title: "Formats", d: w.formats, what: "format" },
@@ -330,12 +332,22 @@ function WhatsWorking({ list, today }: { list: Post[]; today: string | null }) {
   ];
   return (
     <section className="mt-4" aria-labelledby="whats-working">
-      <h2 id="whats-working" className={cardTitle}>What&apos;s working</h2>
-      <p className="-mt-2 mb-3 text-xs text-muted">
-        Each post compared with your usual engagement rate on its own platform. Posts count once they&apos;re {MIN_AGE} days old; groups need {MIN_GROUP} posts.
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 id="whats-working" className="font-serif text-xl">What&apos;s working</h2>
+        <div className="flex rounded-full bg-white p-1 ring-1 ring-navy/[0.07]" role="group" aria-label="Compare on">
+          <button className={segBtn(basis === "latest")} aria-pressed={basis === "latest"} onClick={() => setBasis("latest")}>Latest numbers</button>
+          <button className={segBtn(basis === "day7")} aria-pressed={basis === "day7"} onClick={() => setBasis("day7")}>Day 7 reading</button>
+        </div>
+      </div>
+      <p className="-mt-1 mb-3 text-xs text-muted">
+        {basis === "latest"
+          ? <>Each post&apos;s current numbers compared with your usual engagement rate on its own platform. Posts count once they&apos;re {MIN_AGE} days old; groups need {MIN_GROUP} posts.</>
+          : <>Each post&apos;s first capture from day {DAY7_FROM}–{DAY7_TO} after publishing, so every post is compared at the same age. Groups need {MIN_GROUP} posts.</>}
       </p>
       {w.compared === 0 ? (
-        <Empty text={`Not enough posts yet: this needs at least ${MIN_PLATFORM} posts on one platform that are ${MIN_AGE}+ days old and have reach.`} />
+        <Empty text={basis === "latest"
+          ? `Not enough posts yet: this needs at least ${MIN_PLATFORM} posts on one platform that are ${MIN_AGE}+ days old and have reach.`
+          : `Not enough Day 7 readings yet: this needs at least ${MIN_PLATFORM} posts on one platform with a capture from day ${DAY7_FROM}–${DAY7_TO}.`} />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {cards.map(({ title, d, what }) => (
@@ -367,11 +379,12 @@ function WhatsWorking({ list, today }: { list: Post[]; today: string | null }) {
           ))}
         </div>
       )}
-      {(w.excludedPlatforms.length > 0 || w.tooRecent > 0 || w.noDate > 0) && (
+      {(w.excludedPlatforms.length > 0 || w.tooRecent > 0 || w.noDate > 0 || w.noReading > 0) && (
         <p className="mt-2 text-xs text-muted">
           {w.excludedPlatforms.map((x) => `${x.platform} isn't compared yet (${x.posts} of ${MIN_PLATFORM} posts needed). `).join("")}
           {w.tooRecent > 0 && `${w.tooRecent} newer post${w.tooRecent === 1 ? "" : "s"} will count once ${MIN_AGE} days old. `}
-          {w.noDate > 0 && `${w.noDate} post${w.noDate === 1 ? " has" : "s have"} no published date.`}
+          {w.noDate > 0 && `${w.noDate} post${w.noDate === 1 ? " has" : "s have"} no published date. `}
+          {w.noReading > 0 && `${w.noReading} post${w.noReading === 1 ? " has" : "s have"} no capture from day ${DAY7_FROM}–${DAY7_TO}, so ${w.noReading === 1 ? "it isn't" : "they aren't"} compared here.`}
         </p>
       )}
     </section>

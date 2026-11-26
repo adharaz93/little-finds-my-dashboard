@@ -2,7 +2,7 @@ import type { ContentItem, Metrics, MetricSnapshot, Publication } from "./types"
 import { isValidDate, sameMetrics, METRIC_ORDER, type MetricKey } from "./capture";
 import { compareSnapshots, latestSnapshot } from "./snapshots";
 import { daysBetween } from "./analytics";
-import { formatDate } from "./utils";
+import { engagementRate, formatDate, hasRate } from "./utils";
 
 // Display helpers for performance history (P1c). Pure: they never change data.
 
@@ -89,4 +89,39 @@ export function historyGroups(content: readonly ContentItem[], platform = "All")
     .filter((g) => g.pubs.length > 0);
   const recent = (g: HistoryGroup) => g.pubs.map((x) => lastActivity(x.pub)).sort().at(-1) ?? "";
   return groups.sort((a, b) => recent(b).localeCompare(recent(a)));
+}
+
+/* ---------- P4: timeline and the Day 7 reading ---------- */
+
+export type TimelinePoint = { day: number; date: string; reach: number; rate: number | null };
+
+// One point per dated capture that isn't removed, on a Day N axis (oldest first). Captures without
+// a date, dated before publishing, or on a post without a published date can't be placed, so they
+// are left out (they stay in the History list). Rate is null when reach is 0: unknown, not 0%.
+export function timelinePoints(p: Publication): TimelinePoint[] {
+  if (!isValidDate(p.publishedDate)) return [];
+  return p.snapshots
+    .filter((s) => !s.deleted && isValidDate(s.capturedOn))
+    .sort(compareSnapshots)
+    .flatMap((s) => {
+      const day = dayN(s.capturedOn, p.publishedDate);
+      if (day == null || day < 0) return [];
+      return [{ day, date: s.capturedOn!, reach: s.metrics.reach, rate: hasRate(s.metrics) ? engagementRate(s.metrics) : null }];
+    });
+}
+
+// The "Day 7 reading": the first capture (that isn't removed) dated day 7–13 after publishing. Same
+// day: the one entered last. Null if there's none, so the post is left out rather than guessed.
+export const DAY7_FROM = 7;
+export const DAY7_TO = 13;
+export function day7Reading(p: Publication): MetricSnapshot | null {
+  if (!isValidDate(p.publishedDate)) return null;
+  let best: { s: MetricSnapshot; day: number } | null = null;
+  for (const s of p.snapshots) {
+    if (s.deleted) continue;
+    const day = dayN(s.capturedOn, p.publishedDate);
+    if (day == null || day < DAY7_FROM || day > DAY7_TO) continue;
+    if (!best || day < best.day || (day === best.day && s.at > best.s.at)) best = { s, day };
+  }
+  return best?.s ?? null;
 }
