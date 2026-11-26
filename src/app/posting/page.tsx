@@ -6,6 +6,7 @@ import type { Post } from "@/lib/posts";
 import { resolvePublishedDate } from "@/lib/capture";
 import { formatDate, statusColor } from "@/lib/utils";
 import ContentForm from "@/components/ContentForm";
+import PerformancePanel from "@/components/PerformancePanel";
 import { Button, Empty, PageHeader, PlatformBadge, StatusBadge } from "@/components/ui";
 
 const COLUMNS = [
@@ -17,6 +18,7 @@ const COLUMNS = [
 export default function PostingPage() {
   const { posts, savePublication } = useStore();
   const [editing, setEditing] = useState<ContentItem | null>(null);
+  const [perf, setPerf] = useState<Post | null>(null);
   // On phones and tablets one column shows at a time; from lg up all three show.
   const [tab, setTab] = useState<(typeof COLUMNS)[number]["status"]>("Ready");
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -104,6 +106,9 @@ export default function PostingPage() {
                           <Button variant="ghost" size="sm" onClick={() => move(c, "Ready")}>Unschedule</Button>
                         </>
                       )}
+                      {(c.status === "Posted" || c.metrics) && (
+                        <Button variant="ghost" size="sm" onClick={() => setPerf(c)} aria-label={`Performance for ${c.title}, ${c.platform}`}>Performance</Button>
+                      )}
                       <Button variant="ghost" size="sm" onClick={() => setEditing(c.content)}>Edit</Button>
                     </div>
                   </div>
@@ -114,6 +119,7 @@ export default function PostingPage() {
         })}
       </div>
       {editing && <ContentForm item={editing} onClose={() => setEditing(null)} />}
+      {perf && <PerformancePanel contentId={perf.contentId} publicationId={perf.id} onClose={() => setPerf(null)} />}
     </>
   );
 }

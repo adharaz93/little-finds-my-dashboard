@@ -1,21 +1,17 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { PILLARS, PLATFORMS, type MetricSource, type Platform } from "@/lib/types";
+import { PILLARS, PLATFORMS, type Platform } from "@/lib/types";
 import type { Post } from "@/lib/posts";
 import {
   byPlatform, change, comparison, highlights, inRange, lastDays, measured, previousRange, totals, trend,
   type DataView, type Range, type Totals,
 } from "@/lib/analytics";
 import type { ConnectionState, SyncResult } from "@/lib/integrations/types";
-import {
-  METRIC_ORDER, OPTIONAL_METRICS, localToday, metricLabel, parseMetricDraft, sameMetrics, toMetricDraft,
-  type MetricDraft, type MetricKey,
-} from "@/lib/capture";
-import { addCapture } from "@/lib/snapshots";
 import { engagement, engagementRate, formatDate, hasRate, num, pct, platformColor } from "@/lib/utils";
 import TrendChart from "@/components/TrendChart";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, PlatformBadge, Select } from "@/components/ui";
+import PerformancePanel, { SOURCE_BADGE } from "@/components/PerformancePanel";
+import { Badge, Button, Card, Empty, Input, PageHeader, PlatformBadge, Select } from "@/components/ui";
 
 const RANGES = [
   { id: "7", label: "Last 7 days", days: 7 },
@@ -113,7 +109,7 @@ export default function AnalyticsPage() {
 
       <Connections />
       <DataEntry posts={posts} onEdit={setEditing} />
-      {editing && <MetricsModal post={editing} onClose={() => setEditing(null)} />}
+      {editing && <PerformancePanel contentId={editing.contentId} publicationId={editing.id} onClose={() => setEditing(null)} />}
     </>
   );
 }
@@ -410,17 +406,17 @@ function Connections() {
 
 /* ---------- Manual data entry (every post, with where its numbers came from) ---------- */
 
-const SOURCE: Record<MetricSource, { t: string; c: string }> = {
-  demo: { t: "Demo", c: "bg-peach" },
-  manual: { t: "Entered by hand", c: "bg-mint" },
-  synced: { t: "Synced", c: "bg-baby" },
-};
-
 function DataEntry({ posts, onEdit }: { posts: Post[]; onEdit: (p: Post) => void }) {
   const eligible = posts.filter((p) => p.status === "Posted" || p.metrics).sort((a, b) => b.date.localeCompare(a.date));
   return (
     <Card className="mt-4">
-      <h2 className="mb-1 font-serif text-xl">Performance data</h2>
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-serif text-xl">Performance data</h2>
+        {/* The all-posts history overview is planned (P1c task 5) but not built yet: a label, not a link. */}
+        <span className="inline-flex min-h-11 items-center gap-2 text-sm text-muted" aria-label="All history overview: coming next">
+          All history <Badge color="bg-white">Coming next</Badge>
+        </span>
+      </div>
       <p className="mb-3 text-xs text-muted">Enter numbers from each platform by hand until syncing is connected. Engagement rate = engagement / reach x 100.</p>
       {eligible.length === 0 && <Empty text="Mark a platform post as Posted to add its numbers." />}
       <ul className="divide-y divide-navy/10">
@@ -432,83 +428,13 @@ function DataEntry({ posts, onEdit }: { posts: Post[]; onEdit: (p: Post) => void
             </span>
             <span className="flex flex-wrap gap-1 sm:justify-end">
               <PlatformBadge>{p.platform}</PlatformBadge>
-              {p.metricsSource ? <Badge color={SOURCE[p.metricsSource].c}>{SOURCE[p.metricsSource].t}</Badge> : <Badge color="bg-white">No data yet</Badge>}
+              {p.metricsSource ? <Badge color={SOURCE_BADGE[p.metricsSource].c}>{SOURCE_BADGE[p.metricsSource].t}</Badge> : <Badge color="bg-white">No data yet</Badge>}
             </span>
             <span className="w-14 text-right tabular-nums">{hasRate(p.metrics) ? pct(engagementRate(p.metrics)) : "-"}</span>
-            <Button variant="ghost" size="sm" onClick={() => onEdit(p)}>{p.metrics ? "Edit data" : "Add data"}</Button>
+            <Button variant="ghost" size="sm" onClick={() => onEdit(p)} aria-label={`Performance for ${p.title}, ${p.platform}`}>Performance</Button>
           </li>
         ))}
       </ul>
     </Card>
-  );
-}
-
-function MetricsModal({ post, onClose }: { post: Post; onClose: () => void }) {
-  const { savePublication } = useStore();
-  const [d, setD] = useState<MetricDraft>(toMetricDraft(post.metrics));
-  // Messages appear after the first Save attempt, then update as the user types.
-  const [tried, setTried] = useState(false);
-  const parsed = parseMetricDraft(d);
-  const errors = parsed.ok ? {} : parsed.errors;
-  const optional = (k: MetricKey) => OPTIONAL_METRICS.includes(k);
-  return (
-    <Modal title="Performance data" onClose={onClose}>
-      <p className="mb-3 text-sm text-muted">{post.title} · {post.platform}</p>
-      {post.content.isDemo ? (
-        <p className="mb-3 rounded-xl bg-peach px-3 py-2 text-xs">This is a demo sample. Its numbers only appear in the demo preview, never as your account&apos;s performance.</p>
-      ) : (
-        <p className="mb-3 rounded-xl bg-mint px-3 py-2 text-xs">Numbers saved here are marked as entered by hand, not synced from {post.platform}.</p>
-      )}
-      <form
-        className="space-y-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          // Nothing is saved until every field is valid: no blank or unreadable value becomes 0.
-          if (!parsed.ok) {
-            setTried(true);
-            return;
-          }
-          const metrics = parsed.metrics;
-          // Numbers on demo samples stay demo. Numbers on the user's own content are "manual":
-          // typed by hand, never labelled as synced. Each save adds a capture dated today (local);
-          // the publication's current numbers then follow its latest capture (lib/snapshots.ts).
-          if (!sameMetrics(post.metrics, metrics)) {
-            const source = post.content.isDemo ? "demo" : "manual";
-            savePublication(post.contentId, addCapture(post.publication, { metrics, source, capturedOn: localToday() }));
-          }
-          onClose();
-        }}
-      >
-        <div className="grid grid-cols-2 gap-3">
-          {METRIC_ORDER.map((k) => {
-            const err = tried ? errors[k] : undefined;
-            return (
-              <div key={k}>
-                <Field label={optional(k) ? `${metricLabel(k, post.platform)} (optional)` : metricLabel(k, post.platform)}>
-                  {/* Text, not type=number: a number field silently empties "1,200", which used to save as 0. */}
-                  <Input
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder={optional(k) ? "Not reported" : undefined}
-                    value={d[k]}
-                    aria-invalid={err ? true : undefined}
-                    aria-describedby={err ? `metric-err-${k}` : undefined}
-                    onChange={(e) => setD({ ...d, [k]: e.target.value })}
-                  />
-                </Field>
-                {err && <p id={`metric-err-${k}`} className="mt-1 text-xs text-[#8a3a45]">{err}</p>}
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-xs text-muted">Reach, likes, comments and shares are required (enter 0 if none). Leave optional numbers blank if the platform doesn&apos;t report them.</p>
-        <p className="text-sm">Engagement rate: <b>{parsed.ok && hasRate(parsed.metrics) ? pct(engagementRate(parsed.metrics)) : "–"}</b></p>
-        {tried && !parsed.ok && <p role="alert" className="text-sm text-[#8a3a45]">Fix the highlighted numbers to save.</p>}
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit">Save</Button>
-        </div>
-      </form>
-    </Modal>
   );
 }

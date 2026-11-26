@@ -119,7 +119,8 @@ export const Select = (p: React.SelectHTMLAttributes<HTMLSelectElement>) => <sel
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+// size "wide" gives more room on larger screens (e.g. performance history); phones keep the full-width sheet.
+export function Modal({ title, onClose, children, size = "default" }: { title: string; onClose: () => void; children: React.ReactNode; size?: "default" | "wide" }) {
   const box = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   useEffect(() => {
@@ -155,7 +156,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-cream p-6 shadow-soft sm:rounded-[20px]"
+        className={`max-h-[92vh] w-full ${size === "wide" ? "max-w-2xl" : "max-w-lg"} overflow-y-auto rounded-t-3xl bg-cream p-6 shadow-soft sm:rounded-[20px]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
