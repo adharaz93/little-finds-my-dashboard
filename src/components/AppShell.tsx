@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import InsightsRail from "./Insights";
+import { useStore } from "@/lib/store";
 
 const ICONS: Record<string, string> = {
   dashboard: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
@@ -26,6 +27,23 @@ function Icon({ name }: { name: string }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" aria-hidden>
       <path d={ICONS[name]} />
     </svg>
+  );
+}
+
+// Storage problems are shown, never hidden: unsaved changes and records set aside on load.
+function StorageNotice() {
+  const { storage, dismissNotices } = useStore();
+  const { notices, saveError, savingDisabled } = storage;
+  if (!saveError && !savingDisabled && notices.length === 0) return null;
+  return (
+    <div role="alert" className="mb-4 space-y-1 rounded-xl bg-peach px-3 py-2 text-xs">
+      {saveError && <p className="font-medium">{saveError} Keep this tab open and free up space, or copy anything important elsewhere.</p>}
+      {savingDisabled && <p className="font-medium">Saving is turned off for this session to protect your existing data.</p>}
+      {notices.map((n) => <p key={n}>{n}</p>)}
+      {notices.length > 0 && !saveError && !savingDisabled && (
+        <button onClick={dismissNotices} className="link inline-flex min-h-8 items-center text-muted">Dismiss</button>
+      )}
+    </div>
   );
 }
 
@@ -60,6 +78,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main workspace */}
       <main className="mx-auto w-full min-w-0 max-w-6xl px-4 pb-32 pt-6 sm:px-8 lg:pb-10">
         <p className="mb-4 font-serif text-2xl lg:hidden">Little Finds <span className="italic text-muted">MY</span></p>
+        <StorageNotice />
         {children}
         {/* The one place the demo notice lives. */}
         <footer className="mt-12 border-t border-navy/10 pt-4 text-xs text-muted">

@@ -1,7 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import type { ContentItem } from "@/lib/types";
+import type { ContentItem, Status } from "@/lib/types";
+import { today, type Post } from "@/lib/posts";
 import { formatDate, statusColor } from "@/lib/utils";
 import ContentForm from "@/components/ContentForm";
 import { Button, Empty, PageHeader, PlatformBadge, StatusBadge } from "@/components/ui";
@@ -13,14 +14,20 @@ const COLUMNS = [
 ] as const;
 
 export default function PostingPage() {
-  const { content, saveContent } = useStore();
+  const { posts, savePublication } = useStore();
   const [editing, setEditing] = useState<ContentItem | null>(null);
   // On phones and tablets one column shows at a time; from lg up all three show.
   const [tab, setTab] = useState<(typeof COLUMNS)[number]["status"]>("Ready");
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const move = (c: ContentItem, status: ContentItem["status"]) => saveContent({ ...c, status });
-  const count = (s: string) => content.filter((c) => c.status === s).length;
+  // Moves only this platform's post; the same content on other platforms keeps its own status.
+  const move = (c: Post, status: Status) =>
+    savePublication(c.contentId, {
+      ...c.publication,
+      status,
+      publishedDate: status === "Posted" ? c.publication.publishedDate || today() : status === "Ready" ? "" : c.publication.publishedDate,
+    });
+  const count = (s: string) => posts.filter((c) => c.status === s).length;
 
   const onTabKey = (e: React.KeyboardEvent, i: number) => {
     const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -62,7 +69,7 @@ export default function PostingPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {COLUMNS.map((col) => {
-          const items = content.filter((c) => c.status === col.status).sort((a, b) => a.date.localeCompare(b.date));
+          const items = posts.filter((c) => c.status === col.status).sort((a, b) => a.date.localeCompare(b.date));
           return (
             <section
               key={col.status}
@@ -96,7 +103,7 @@ export default function PostingPage() {
                           <Button variant="ghost" size="sm" onClick={() => move(c, "Ready")}>Unschedule</Button>
                         </>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>Edit</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditing(c.content)}>Edit</Button>
                     </div>
                   </div>
                 ))}

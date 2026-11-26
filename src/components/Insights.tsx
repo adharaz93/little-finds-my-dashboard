@@ -1,27 +1,34 @@
 "use client";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { engagementRate, num, pct } from "@/lib/utils";
+import { isReal } from "@/lib/posts";
+import { engagementRate, hasRate, num, pct } from "@/lib/utils";
 
 const label = "text-xs font-medium uppercase tracking-wider text-muted";
 
+// Performance figures here use real data only (manual entries or synced). Demo numbers are
+// never shown as account performance; they appear only in Analytics' labelled demo preview.
+const NO_REAL = "No real performance data yet. Enter numbers or connect an account in Analytics.";
+
 function useInsights() {
-  const { content } = useStore();
-  const withData = content.filter((c) => c.metrics);
-  const top = [...withData].sort((a, b) => engagementRate(b.metrics) - engagementRate(a.metrics)).slice(0, 3);
-  const avg = withData.length ? withData.reduce((s, c) => s + engagementRate(c.metrics), 0) / withData.length : 0;
+  const { content, posts } = useStore();
+  const withData = posts.filter((p) => p.metrics && !p.content.isDemo && isReal(p.metricsSource));
+  const top = withData.filter((p) => hasRate(p.metrics)).sort((a, b) => engagementRate(b.metrics) - engagementRate(a.metrics)).slice(0, 3);
+  // Average only over posts with reach; a post without reach has no rate, not a 0% rate.
+  const withRate = withData.filter((p) => hasRate(p.metrics));
+  const avg = withRate.length ? withRate.reduce((s, c) => s + engagementRate(c.metrics), 0) / withRate.length : null;
   const reach = withData.reduce((s, c) => s + (c.metrics?.reach ?? 0), 0);
-  const nextUp = content
+  const nextUp = posts
     .filter((c) => c.status === "Ready" || c.status === "Scheduled")
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 3);
   const tasks = [
-    { n: content.filter((c) => c.status === "Drafting" && !c.caption).length, t: "drafts need a caption", href: "/bank" },
-    { n: content.filter((c) => c.status === "Ready").length, t: "ready to schedule", href: "/posting" },
-    { n: content.filter((c) => c.status === "Posted" && !c.metrics).length, t: "posts need performance data", href: "/analytics" },
-    { n: content.filter((c) => c.status !== "Idea" && !c.assetUrl).length, t: "items missing an asset link", href: "/bank" },
+    { n: posts.filter((c) => c.status === "Drafting" && !c.caption).length, t: "drafts need a caption", href: "/bank" },
+    { n: posts.filter((c) => c.status === "Ready").length, t: "ready to schedule", href: "/posting" },
+    { n: posts.filter((c) => c.status === "Posted" && !c.metrics).length, t: "posts need performance data", href: "/analytics" },
+    { n: content.filter((c) => c.publications.some((p) => p.status !== "Idea") && !c.assetUrl).length, t: "items missing an asset link", href: "/bank" },
   ].filter((x) => x.n > 0);
-  return { top, avg, reach, nextUp, tasks };
+  return { top, avg, reach, nextUp, tasks, hasReal: withData.length > 0 };
 }
 
 // Main workspace cards. Compact: one row per item, long titles truncate.
@@ -52,7 +59,7 @@ export function TopContentCard({ className = "" }: { className?: string }) {
   return (
     <section className={`${compactCard} ${className}`}>
       <h2 className="mb-1 font-serif text-xl">Top performing content</h2>
-      {top.length === 0 && <p className="py-2 text-sm text-muted">Add performance data in Analytics to see this.</p>}
+      {top.length === 0 && <p className="py-2 text-sm text-muted">{NO_REAL}</p>}
       <ol className="divide-y divide-navy/10">
         {top.map((c, i) => (
           <li key={c.id} className="flex min-h-10 items-center gap-3 py-1 text-sm">
@@ -69,14 +76,15 @@ export function TopContentCard({ className = "" }: { className?: string }) {
 
 // The four rail sections: Weekly Insights, Upcoming Content, Top Performing Posts, Pending Tasks.
 function RailBody() {
-  const { top, avg, reach, nextUp, tasks } = useInsights();
+  const { top, avg, reach, nextUp, tasks, hasReal } = useInsights();
   return (
     <div className="space-y-4 text-sm">
       <section className="rounded-[20px] bg-white p-4 shadow-soft ring-1 ring-navy/[0.07]">
         <p className={label}>Weekly insights</p>
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        {!hasReal && <p className="mt-2 text-muted">Data not yet available.</p>}
+        <div className={`mt-2 grid grid-cols-2 gap-2 ${hasReal ? "" : "hidden"}`}>
           <div className="rounded-xl bg-baby p-3">
-            <p className="font-serif text-2xl tabular-nums">{pct(avg)}</p>
+            <p className="font-serif text-2xl tabular-nums">{avg == null ? "–" : pct(avg)}</p>
             <p className="text-xs text-muted">avg engagement</p>
           </div>
           <div className="rounded-xl bg-pink p-3">
@@ -104,14 +112,14 @@ function RailBody() {
 
       <section className="rounded-[20px] bg-white p-4 shadow-soft ring-1 ring-navy/[0.07]">
         <p className={label}>Top performing posts</p>
-        {top.length === 0 && <p className="mt-2 text-muted">Add performance data to see this.</p>}
+        {top.length === 0 && <p className="mt-2 text-muted">Data not yet available.</p>}
         <ol className="mt-2 space-y-2">
           {top.map((c, i) => (
             <li key={c.id} className="flex items-start gap-2">
               <span className="font-serif text-lg leading-5">{i + 1}</span>
               <span>
                 {c.title}
-                <span className="block text-xs text-muted">{pct(engagementRate(c.metrics))} engagement</span>
+                <span className="block text-xs text-muted">{pct(engagementRate(c.metrics))} engagement · {c.platform}</span>
               </span>
             </li>
           ))}

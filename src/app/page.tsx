@@ -10,11 +10,11 @@ import { Button, Empty, PageHeader, StatCard, StatusBadge } from "@/components/u
 
 // Compact overview grid: KPIs, then Pipeline | Coming up, then To do | Top performing (40 / 60).
 export default function Dashboard() {
-  const { content, resetDemo } = useStore();
+  const { content, posts, resetDemo } = useStore();
   const [editing, setEditing] = useState<ContentItem | null>(null);
 
-  const count = (...s: string[]) => content.filter((c) => s.includes(c.status)).length;
-  const upcoming = content
+  const count = (...s: string[]) => posts.filter((c) => s.includes(c.status)).length;
+  const upcoming = posts
     .filter((c) => c.status !== "Posted")
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5);
@@ -45,7 +45,7 @@ export default function Dashboard() {
                 <div key={s} className="flex items-center gap-3 text-sm">
                   <span className="w-20 shrink-0">{s}</span>
                   <div className="h-2.5 min-w-0 flex-1 rounded-full bg-cream">
-                    <div className={`h-2.5 rounded-full ${statusBar[s]}`} style={{ width: `${content.length ? (n / content.length) * 100 : 0}%` }} />
+                    <div className={`h-2.5 rounded-full ${statusBar[s]}`} style={{ width: `${posts.length ? (n / posts.length) * 100 : 0}%` }} />
                   </div>
                   <span className="w-5 shrink-0 text-right tabular-nums">{n}</span>
                 </div>
@@ -63,9 +63,10 @@ export default function Dashboard() {
           <ul className="divide-y divide-navy/10">
             {upcoming.map((c) => (
               <li key={c.id}>
-                <button onClick={() => setEditing(c)} title={c.title} className="flex min-h-10 w-full items-center gap-3 py-1 text-left text-sm">
+                <button onClick={() => setEditing(c.content)} title={`${c.title} (${c.platform})`} className="flex min-h-10 w-full items-center gap-3 py-1 text-left text-sm">
                   <b className="w-14 shrink-0 font-semibold tabular-nums">{formatDate(c.date)}</b>
                   <span className="min-w-0 flex-1 truncate">{c.title}</span>
+                  <span className="hidden shrink-0 text-xs text-muted sm:inline">{c.platform}</span>
                   <span className="shrink-0"><StatusBadge status={c.status} /></span>
                 </button>
               </li>

@@ -9,13 +9,13 @@ import { Button, Empty, PageHeader, Select, StatusBadge } from "@/components/ui"
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export default function CalendarPage() {
-  const { content } = useStore();
+  const { posts } = useStore();
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [ym, setYm] = useState({ y: 2026, m: 10 }); // m is 0-based (10 = November)
   const [platform, setPlatform] = useState("All");
   const [editing, setEditing] = useState<ContentItem | null>(null);
 
-  const filtered = content.filter((c) => platform === "All" || c.platform === platform);
+  const filtered = posts.filter((c) => platform === "All" || c.platform === platform);
   const first = new Date(ym.y, ym.m, 1);
   const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
   const offset = (first.getDay() + 6) % 7; // week starts Monday
@@ -70,9 +70,9 @@ export default function CalendarPage() {
                   {items.map((c) => (
                     <button
                       key={c.id}
-                      onClick={() => setEditing(c)}
+                      onClick={() => setEditing(c.content)}
                       className={`mb-1 block w-full truncate rounded-lg px-1.5 py-0.5 text-left text-xs ring-1 ring-navy/10 ${statusColor[c.status]}`}
-                      title={`${c.title} (${c.status})`}
+                      title={`${c.title} (${c.platform}, ${c.status})`}
                     >
                       {c.title}
                     </button>
@@ -86,7 +86,7 @@ export default function CalendarPage() {
         <div className="space-y-2">
           {filtered.length === 0 && <Empty text="No content matches." />}
           {[...filtered].sort((a, b) => a.date.localeCompare(b.date)).map((c) => (
-            <button key={c.id} onClick={() => setEditing(c)} className="lift flex w-full items-center justify-between gap-3 rounded-[20px] bg-white p-4 text-left shadow-soft ring-1 ring-navy/[0.07]">
+            <button key={c.id} onClick={() => setEditing(c.content)} className="lift flex w-full items-center justify-between gap-3 rounded-[20px] bg-white p-4 text-left shadow-soft ring-1 ring-navy/[0.07]">
               <span>
                 <b>{formatDate(c.date)}</b> · {c.title}
                 <span className="block text-xs text-muted">{c.platform} · {c.pillar}</span>
