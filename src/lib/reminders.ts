@@ -71,3 +71,18 @@ export function dueCheckpoints(content: readonly ContentItem[], today: string): 
   missingPublishedDate.sort(order);
   return { due, missingPublishedDate };
 }
+
+/* ---------- display helpers (P1d Task 5; the rules above are unchanged) ---------- */
+
+export const EMPTY_REMINDERS: ReminderSummary = { due: [], missingPublishedDate: [] };
+
+export const reminderLabel = (checkpoint: Checkpoint) => `Day ${checkpoint} numbers due`;
+
+// Key for one publication. Content id + publication id, because older data can repeat a
+// publication id across different content items.
+export const reminderKey = (contentId: string, publicationId: string) => `${contentId}\u0000${publicationId}`;
+
+// Due reminders by publication, for badges and for de-duplicating task counts.
+export function indexReminders(summary: ReminderSummary): Map<string, DueReminder> {
+  return new Map(summary.due.map((r) => [reminderKey(r.contentId, r.publicationId), r]));
+}

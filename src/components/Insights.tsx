@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { isReal } from "@/lib/posts";
+import { buildTasks } from "@/lib/tasks";
 import { engagementRate, hasRate, num, pct } from "@/lib/utils";
 
 const label = "text-xs font-medium uppercase tracking-wider text-muted";
@@ -11,7 +12,7 @@ const label = "text-xs font-medium uppercase tracking-wider text-muted";
 const NO_REAL = "No real performance data yet. Enter numbers or connect an account in Analytics.";
 
 function useInsights() {
-  const { content, posts } = useStore();
+  const { content, posts, reminders } = useStore();
   const withData = posts.filter((p) => p.metrics && !p.content.isDemo && isReal(p.metricsSource));
   const top = withData.filter((p) => hasRate(p.metrics)).sort((a, b) => engagementRate(b.metrics) - engagementRate(a.metrics)).slice(0, 3);
   // Average only over posts with reach; a post without reach has no rate, not a 0% rate.
@@ -22,12 +23,8 @@ function useInsights() {
     .filter((c) => c.status === "Ready" || c.status === "Scheduled")
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 3);
-  const tasks = [
-    { n: posts.filter((c) => c.status === "Drafting" && !c.caption).length, t: "drafts need a caption", href: "/bank" },
-    { n: posts.filter((c) => c.status === "Ready").length, t: "ready to schedule", href: "/posting" },
-    { n: posts.filter((c) => c.status === "Posted" && !c.metrics).length, t: "posts need performance data", href: "/analytics" },
-    { n: content.filter((c) => c.publications.some((p) => p.status !== "Idea") && !c.assetUrl).length, t: "items missing an asset link", href: "/bank" },
-  ].filter((x) => x.n > 0);
+  // One list for the Dashboard To-do and the rail, so both always show the same counts.
+  const tasks = buildTasks(posts, content, reminders);
   return { top, avg, reach, nextUp, tasks, hasReal: withData.length > 0 };
 }
 

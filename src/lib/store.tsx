@@ -4,6 +4,8 @@ import type { Asset, ContentItem, Publication } from "./types";
 import { DEMO_ASSETS, DEMO_CONTENT } from "./demo-data";
 import { KEY_BEFORE_IMPORT, KEY_BEFORE_RESET, KEY_V2, loadState, serialize, type Backup, type Quarantined } from "./migrate";
 import { flattenPosts, type Post } from "./posts";
+import { EMPTY_REMINDERS, dueCheckpoints, type ReminderSummary } from "./reminders";
+import { localToday } from "./capture";
 import { KEY_LAST_DELETED, commitRecoveryCopy, contentDeletionRecord, planRestore, publicationRemovalRecord, readLastDeleted, type LastDeleted } from "./recovery";
 
 // What the user should know about storage: load problems, and whether the last save worked.
@@ -20,6 +22,8 @@ type Store = {
   saveContentSafely: (c: ContentItem) => Result;
   deleteContent: (id: string) => Result; // if the item holds performance data, writes the recovery copy first; nothing is deleted if that fails
   lastDeleted: LastDeleted | null; // the current recovery copy, if one exists and is readable
+  // Performance reminders, worked out once here and shared. Empty until the browser date is known.
+  reminders: ReminderSummary;
   restoreLastDeleted: () => { ok: true; message: string } | { ok: false; error: string };
   savePublication: (contentId: string, p: Publication) => void;
   saveAsset: (a: Asset) => void;
@@ -52,6 +56,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState<StorageStatus>({ notices: [], saveError: null, savingDisabled: false });
   const [lastDeleted, setLastDeleted] = useState<LastDeleted | null>(null);
+  // The visitor's local date. Null on the server and the first browser render (so the HTML matches),
+  // set after the page loads and refreshed when the tab becomes visible again. No timers.
+  const [today, setToday] = useState<string | null>(null);
   // After a restore, the recovery copy is cleared only once the restored data has been saved.
   const clearCopyAfterSave = useRef(false);
   const restoring = useRef(false);
@@ -65,8 +72,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAssets(r.assets);
     setStorage({ notices: r.notices, saveError: null, savingDisabled: !r.canWrite });
     setLastDeleted(readLastDeleted(localStorage)); // read only: an unreadable copy is ignored, never changed
+    setToday(localToday());
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // A tab left open past midnight picks up the new date when it is shown again.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") setToday(localToday()); // same date: no re-render
+    };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
   }, []);
 
   // Nothing is written until loading finished, and never when the load said writing is unsafe.
@@ -93,6 +110,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [content, assets, loaded, storage.savingDisabled]);
 
   const posts = useMemo(() => flattenPosts(content), [content]);
+  const reminders = useMemo(() => (today ? dueCheckpoints(content, today) : EMPTY_REMINDERS), [content, today]);
   const deleteContent = useCallback(
     (id: string): Result => {
       const item = content.find((c) => c.id === id);
@@ -172,7 +190,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
+    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, reminders, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
       {children}
     </Ctx.Provider>
   );

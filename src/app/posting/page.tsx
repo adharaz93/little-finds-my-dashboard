@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import type { ContentItem, Status } from "@/lib/types";
 import type { Post } from "@/lib/posts";
@@ -7,7 +7,8 @@ import { resolvePublishedDate } from "@/lib/capture";
 import { formatDate, statusColor } from "@/lib/utils";
 import ContentForm from "@/components/ContentForm";
 import PerformancePanel from "@/components/PerformancePanel";
-import { Button, Empty, PageHeader, PlatformBadge, StatusBadge } from "@/components/ui";
+import { indexReminders, reminderKey, reminderLabel } from "@/lib/reminders";
+import { Badge, Button, Empty, PageHeader, PlatformBadge, StatusBadge } from "@/components/ui";
 
 const COLUMNS = [
   { status: "Ready", tone: "bg-mint/50", hint: "Approved and waiting for a date" },
@@ -16,7 +17,8 @@ const COLUMNS = [
 ] as const;
 
 export default function PostingPage() {
-  const { posts, savePublication } = useStore();
+  const { posts, savePublication, reminders } = useStore();
+  const due = useMemo(() => indexReminders(reminders), [reminders]);
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [perf, setPerf] = useState<Post | null>(null);
   // On phones and tablets one column shows at a time; from lg up all three show.
@@ -91,7 +93,14 @@ export default function PostingPage() {
                       <p className="font-medium">{c.title}</p>
                       {c.status === "Posted" && <StatusBadge status="Posted" />}
                     </div>
-                    <p className="mb-2 mt-1 flex items-center gap-2 text-xs text-muted">{formatDate(c.date)} <PlatformBadge>{c.platform}</PlatformBadge></p>
+                    <p className="mb-2 mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                      {formatDate(c.date)} <PlatformBadge>{c.platform}</PlatformBadge>
+                      {/* Only this publication's own reminder (content id + publication id). */}
+                      {(() => {
+                        const r = due.get(reminderKey(c.contentId, c.id));
+                        return r && <Badge color="bg-peach">{reminderLabel(r.checkpoint)}</Badge>;
+                      })()}
+                    </p>
                     {c.postUrl && <a href={c.postUrl} target="_blank" rel="noreferrer" className="link inline-flex min-h-11 items-center text-xs sm:min-h-0">View post</a>}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {c.caption && (
