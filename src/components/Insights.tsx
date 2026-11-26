@@ -74,13 +74,13 @@ export function TopContentCard({ className = "" }: { className?: string }) {
   );
 }
 
-// The four rail sections: Weekly Insights, Upcoming Content, Top Performing Posts, Pending Tasks.
+// The four rail sections: Overall performance (all real data, not one week), Upcoming Content, Top Performing Posts, Pending Tasks.
 function RailBody() {
   const { top, avg, reach, nextUp, tasks, hasReal } = useInsights();
   return (
     <div className="space-y-4 text-sm">
       <section className="rounded-[20px] bg-white p-4 shadow-soft ring-1 ring-navy/[0.07]">
-        <p className={label}>Weekly insights</p>
+        <p className={label}>Overall performance</p>
         {!hasReal && <p className="mt-2 text-muted">Data not yet available.</p>}
         <div className={`mt-2 grid grid-cols-2 gap-2 ${hasReal ? "" : "hidden"}`}>
           <div className="rounded-xl bg-baby p-3">

@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Asset, ContentItem, Publication } from "./types";
 import { DEMO_ASSETS, DEMO_CONTENT } from "./demo-data";
-import { KEY_BEFORE_RESET, KEY_V2, loadState, serialize, type Quarantined } from "./migrate";
+import { KEY_BEFORE_IMPORT, KEY_BEFORE_RESET, KEY_V2, loadState, serialize, type Backup, type Quarantined } from "./migrate";
 import { flattenPosts, type Post } from "./posts";
 
 // What the user should know about storage: load problems, and whether the last save worked.
@@ -20,6 +20,8 @@ type Store = {
   saveAsset: (a: Asset) => void;
   deleteAsset: (id: string) => void;
   resetDemo: () => void;
+  exportData: () => string; // everything, including set-aside records, as a backup file's text
+  importBackup: (b: Backup) => boolean; // false when cancelled
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -87,9 +89,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setContent(structuredClone(DEMO_CONTENT));
     setAssets(DEMO_ASSETS);
   }, [content, assets]);
+  const exportData = useCallback(() => serialize(content, assets, quarantine.current), [content, assets]);
+  const importBackup = useCallback(
+    (b: Backup) => {
+      // Same rule as reset: keep a copy of everything first, so an import can be undone by hand.
+      try {
+        localStorage.setItem(KEY_BEFORE_IMPORT, serialize(content, assets, quarantine.current));
+      } catch {
+        if (!confirm("A backup of your current data couldn't be saved first. Import anyway?")) return false;
+      }
+      quarantine.current = b.quarantine;
+      setContent(b.content);
+      if (b.assets) setAssets(b.assets);
+      return true;
+    },
+    [content, assets],
+  );
 
   return (
-    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContent, deleteContent, savePublication, saveAsset, deleteAsset, resetDemo }}>
+    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContent, deleteContent, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
       {children}
     </Ctx.Provider>
   );

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { PLATFORMS, type ContentItem } from "@/lib/types";
 import { formatDate, statusColor } from "@/lib/utils";
@@ -11,7 +11,13 @@ const pad = (n: number) => String(n).padStart(2, "0");
 export default function CalendarPage() {
   const { posts } = useStore();
   const [view, setView] = useState<"calendar" | "list">("calendar");
-  const [ym, setYm] = useState({ y: 2026, m: 10 }); // m is 0-based (10 = November)
+  const [ym, setYm] = useState({ y: 2026, m: 10 }); // m is 0-based; replaced by the current month on mount
+  // Today is only known in the browser, so the current month is set after mount (never during prerender).
+  useEffect(() => {
+    const d = new Date();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- today's date is only known in the browser
+    setYm({ y: d.getFullYear(), m: d.getMonth() });
+  }, []);
   const [platform, setPlatform] = useState("All");
   const [editing, setEditing] = useState<ContentItem | null>(null);
 

@@ -1,5 +1,6 @@
-import type { Asset, ContentItem, LegacyContentItem, MetricSnapshot, MetricSource, Metrics, Platform, Publication, Status } from "./types";
-import { ASSET_TYPES, PLATFORMS, STATUSES } from "./types";
+import type { Asset, ContentItem, Format, LegacyContentItem, MetricSnapshot, MetricSource, Metrics, Platform, Publication, Status } from "./types";
+import { ASSET_TYPES, FORMATS, PLATFORMS, STATUSES } from "./types";
+import { cleanTags } from "./utils";
 import { DEMO_ASSETS, DEMO_CONTENT } from "./demo-data";
 
 // Storage keys. v1 is never written again and never deleted: it stays as a backup.
@@ -9,11 +10,14 @@ export const KEY_V2 = "lfm-studio-v2";
 export const KEY_V2_UNREADABLE = "lfm-studio-v2-unreadable-";
 // The full saved state is copied here before "Reset to demo" replaces it.
 export const KEY_BEFORE_RESET = "lfm-studio-v2-before-reset";
+// The full saved state is copied here before an imported backup replaces it.
+export const KEY_BEFORE_IMPORT = "lfm-studio-v2-before-import";
 
 // A stored value that could not be read. It is kept in storage untouched (never dropped),
 // so nothing is lost and it can be repaired by hand later.
 export type Quarantined = {
-  kind: "content" | "publication" | "metrics" | "snapshot" | "asset" | "assets";
+  kind: "content" | "publication" | "metrics" | "snapshot" | "asset" | "assets" | "field";
+  field?: string; // for kind "field": which optional field was unreadable
   reason: string;
   contentId?: string;
   publicationId?: string;
@@ -41,6 +45,8 @@ const isId = (x: unknown): x is string => typeof x === "string" && x.trim() !== 
 const isPlatform = (x: unknown): x is Platform => (PLATFORMS as readonly unknown[]).includes(x);
 const isStatus = (x: unknown): x is Status => (STATUSES as readonly unknown[]).includes(x);
 const isSource = (x: unknown): x is MetricSource => x === "demo" || x === "manual" || x === "synced";
+const isFormat = (x: unknown): x is Format => (FORMATS as readonly unknown[]).includes(x);
+const blank = (x: unknown) => x == null || x === "";
 
 // A count: a finite, non-negative number (numeric strings are accepted, nothing else is).
 function count(x: unknown): number | undefined {
@@ -98,7 +104,7 @@ function readPublication(x: unknown, contentId: string, q: Quarantined[]): Publi
     else q.push({ kind: "snapshot", reason: "unreadable snapshot", contentId, publicationId: x.id, value: s });
   }
 
-  return {
+  const pub: Publication = {
     ...x, // unknown extra fields are kept, not stripped
     id: x.id,
     platform: x.platform,
@@ -113,6 +119,21 @@ function readPublication(x: unknown, contentId: string, q: Quarantined[]): Publi
     lastSyncedAt: typeof x.lastSyncedAt === "string" ? x.lastSyncedAt : null,
     snapshots,
   };
+  // Optional format: kept only if it is a known format; anything else is set aside, never guessed.
+  delete pub.format;
+  if (isFormat(x.format)) pub.format = x.format;
+  else if (!blank(x.format)) q.push({ kind: "field", field: "format", reason: `unknown format ${JSON.stringify(x.format)}`, contentId, publicationId: x.id, value: x.format });
+  return pub;
+}
+
+// Optional topics: a list of words (or one comma-separated string), cleaned. Unreadable parts are set aside.
+function readTags(x: unknown, contentId: string, q: Quarantined[]): string[] | undefined {
+  if (blank(x)) return undefined;
+  const list = typeof x === "string" ? x.split(",") : Array.isArray(x) ? x : null;
+  const words = (list ?? []).filter((t): t is string => typeof t === "string");
+  if (!list || words.length !== list.length) q.push({ kind: "field", field: "tags", reason: "unreadable topics", contentId, value: x });
+  const tags = cleanTags(words);
+  return tags.length ? tags : undefined;
 }
 
 const withoutDemoFlag = (c: ContentItem) => {
@@ -134,6 +155,9 @@ function readV2Item(x: Obj & { id: string; publications: unknown[] }, q: Quarant
     publications: x.publications.map((p) => readPublication(p, x.id, q)).filter((p): p is Publication => p !== null),
   };
   delete item.isDemo;
+  delete item.tags;
+  const tags = readTags(x.tags, x.id, q);
+  if (tags) item.tags = tags;
   // Demo status is the stored flag, set only on the bundled samples. A record with no flag is
   // demo only if it is still exactly a bundled sample; a matching id or title alone never counts.
   if (x.isDemo === true) item.isDemo = true;
@@ -317,6 +341,20 @@ export function loadState(storage: StorageLike, now = Date.now()): LoadResult {
     notices.push(`Older saved data ("${KEY_V1}") couldn't be read. It has been left untouched.`);
   }
   return demo(canWrite);
+}
+
+// A backup file, checked exactly like saved data. Returns null when the file is not a backup.
+// `assets` is null when the file has no asset list, so importing keeps the current assets.
+// `unreadable` counts records in this file that could not be read (they are kept in quarantine).
+export type Backup = { content: ContentItem[]; assets: Asset[] | null; quarantine: Quarantined[]; unreadable: number };
+export function readBackup(raw: string): Backup | null {
+  const d = parseEnvelope(raw);
+  if (!d) return null;
+  const q: Quarantined[] = [];
+  const hasAssets = d.assets !== undefined;
+  const r = readEnvelope(d, q);
+  const carried = Array.isArray(d.quarantine) ? d.quarantine.length : 0;
+  return { content: r.content, assets: hasAssets ? r.assets : null, quarantine: q, unreadable: q.length - carried };
 }
 
 export const serialize = (content: ContentItem[], assets: Asset[], quarantine: Quarantined[]) =>

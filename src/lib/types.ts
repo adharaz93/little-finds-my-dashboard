@@ -23,10 +23,22 @@ export type Metrics = {
 // A dated copy of a publication's numbers, so trends can use history once syncing exists.
 export type MetricSnapshot = { at: string; source: MetricSource; metrics: Metrics };
 
+// How a post was published. Stored per platform, since one idea can be a Reel on Instagram
+// and a text post on Threads. Missing means unknown: left out of format analysis, never guessed.
+export const FORMATS = ["Reel", "Video", "Carousel", "Photo", "Story", "Text"] as const;
+export type Format = (typeof FORMATS)[number];
+// The formats each platform offers, for the form's dropdown. Stored values are only checked against FORMATS.
+export const PLATFORM_FORMATS: Record<Platform, readonly Format[]> = {
+  Instagram: ["Reel", "Carousel", "Photo", "Story"],
+  TikTok: ["Video", "Carousel"],
+  Threads: ["Text", "Photo", "Carousel", "Video"],
+};
+
 // One platform's copy of a piece of content.
 export type Publication = {
   id: string;
   platform: Platform;
+  format?: Format;
   caption: string;
   status: Status;
   scheduledDate: string; // YYYY-MM-DD
@@ -47,6 +59,8 @@ export type ContentItem = {
   idea: string;
   assetUrl: string;
   notes: string;
+  // Topics, lowercased and unique (e.g. "toddler play", "gift guide"). Optional.
+  tags?: string[];
   publications: Publication[];
   // True for the bundled sample items. Their numbers only ever appear in the demo preview.
   isDemo?: boolean;

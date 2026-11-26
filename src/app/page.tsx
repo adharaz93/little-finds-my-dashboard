@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import { STATUSES, type ContentItem } from "@/lib/types";
 import { formatDate, statusBar } from "@/lib/utils";
 import ContentForm, { blankContent } from "@/components/ContentForm";
+import BackupLinks from "@/components/BackupLinks";
 import { CollapsibleInsights, TodoCard, TopContentCard, compactCard } from "@/components/Insights";
 import { Button, Empty, PageHeader, StatCard, StatusBadge } from "@/components/ui";
 
@@ -80,9 +81,12 @@ export default function Dashboard() {
 
       <CollapsibleInsights />
 
-      <button onClick={() => confirm("Reset all data back to the demo samples?") && resetDemo()} className="link mt-4 inline-flex min-h-11 items-center text-xs text-muted">
-        Reset demo data
-      </button>
+      <div className="mt-4 flex flex-wrap gap-x-5">
+        <button onClick={() => confirm("Reset all data back to the demo samples?") && resetDemo()} className="link inline-flex min-h-11 items-center text-xs text-muted">
+          Reset demo data
+        </button>
+        <BackupLinks />
+      </div>
       {editing && <ContentForm item={editing} onClose={() => setEditing(null)} />}
     </>
   );

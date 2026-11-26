@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { PILLARS, PLATFORMS, STATUSES, type ContentItem, type Platform, type Publication } from "@/lib/types";
-import { uid } from "@/lib/utils";
+import { PILLARS, PLATFORM_FORMATS, PLATFORMS, STATUSES, type ContentItem, type Format, type Platform, type Publication } from "@/lib/types";
+import { parseTags, uid } from "@/lib/utils";
+import { today } from "@/lib/posts";
 import { useStore } from "@/lib/store";
 import { Button, Field, Input, Modal, Select, Textarea } from "./ui";
 
@@ -12,7 +13,7 @@ export function blankPublication(platform: Platform, date: string): Publication 
   };
 }
 
-export function blankContent(date = "2026-12-01"): ContentItem {
+export function blankContent(date = today()): ContentItem {
   return { id: uid(), title: "", pillar: PILLARS[0], idea: "", assetUrl: "", notes: "", publications: [blankPublication("Instagram", date)] };
 }
 
@@ -22,6 +23,8 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
   const { content, saveContent, deleteContent } = useStore();
   const isEdit = content.some((c) => c.id === item.id);
   const [f, setF] = useState(item);
+  // Topics are typed as one comma-separated line and cleaned on save.
+  const [tagText, setTagText] = useState((item.tags ?? []).join(", "));
   const set = <K extends keyof ContentItem>(k: K, v: ContentItem[K]) => setF((p) => ({ ...p, [k]: v }));
   const setPub = (id: string, patch: Partial<Publication>) =>
     setF((p) => ({ ...p, publications: p.publications.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
@@ -29,7 +32,7 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
   const togglePlatform = (platform: Platform) => {
     const existing = f.publications.find((p) => p.platform === platform);
     if (!existing) {
-      const date = f.publications[0]?.scheduledDate ?? "2026-12-01";
+      const date = f.publications[0]?.scheduledDate ?? today();
       set("publications", [...f.publications, blankPublication(platform, date)]);
       return;
     }
@@ -45,8 +48,12 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
         onSubmit={(e) => {
           e.preventDefault();
           if (!f.title.trim()) return;
+          const tags = parseTags(tagText);
+          const { tags: _previous, ...rest } = f;
+          void _previous;
           saveContent({
-            ...f,
+            ...rest,
+            ...(tags.length ? { tags } : {}),
             title: f.title.trim(),
             // A post marked Posted without a date gets its scheduled date as published date.
             publications: f.publications.map((p) => (p.status === "Posted" && !p.publishedDate ? { ...p, publishedDate: p.scheduledDate } : p)),
@@ -69,6 +76,9 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
         </div>
         <Field label="Main idea">
           <Input value={f.idea} onChange={(e) => set("idea", e.target.value)} />
+        </Field>
+        <Field label="Topics (comma separated, optional)">
+          <Input placeholder="e.g. toddler play, gift guide" value={tagText} onChange={(e) => setTagText(e.target.value)} />
         </Field>
 
         <fieldset>
@@ -94,7 +104,7 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
         {f.publications.map((p) => (
           <div key={p.id} className="space-y-3 rounded-2xl bg-white p-3 ring-1 ring-navy/10">
             <p className="font-serif text-lg">{p.platform}</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label="Status">
                 <Select value={p.status} onChange={(e) => setPub(p.id, { status: e.target.value as Publication["status"] })}>
                   {STATUSES.map((s) => <option key={s}>{s}</option>)}
@@ -102,6 +112,13 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
               </Field>
               <Field label="Scheduled date">
                 <Input type="date" required value={p.scheduledDate} onChange={(e) => setPub(p.id, { scheduledDate: e.target.value })} />
+              </Field>
+              <Field label="Format">
+                <Select value={p.format ?? ""} onChange={(e) => setPub(p.id, { format: (e.target.value || undefined) as Format | undefined })}>
+                  <option value="">Not set</option>
+                  {/* A stored format the platform doesn't list stays selectable, so editing never drops it. */}
+                  {[...new Set([...PLATFORM_FORMATS[p.platform], ...(p.format ? [p.format] : [])])].map((x) => <option key={x}>{x}</option>)}
+                </Select>
               </Field>
             </div>
             {/* Published fields belong to this platform only; they open once it is marked Posted

@@ -2,6 +2,11 @@ import type { Metrics } from "./types";
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
+// Topics are compared as plain lowercase words: trimmed, single-spaced, no duplicates.
+export const cleanTags = (tags: string[]): string[] =>
+  [...new Set(tags.map((t) => t.trim().toLowerCase().replace(/\s+/g, " ")).filter(Boolean))];
+export const parseTags = (s: string): string[] => cleanTags(s.split(","));
+
 // Engagement = likes + comments + shares + saves. Where saves are not reported (null) they
 // add nothing: the sum covers the interactions the platform reports, never an invented value.
 export function engagement(m: Metrics | null): number {
