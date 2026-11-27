@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PILLARS, type Asset, type ContentItem } from "../src/lib/types";
 import { DEMO_ASSETS, DEMO_CONTENT } from "../src/lib/demo-data";
-import { demoCounts, pillarOptions, removeDemoMessage, withoutDemoSamples } from "../src/lib/setup";
+import { demoCounts, pillarOptions, removeDemoMessage, storageNote, withoutDemoSamples } from "../src/lib/setup";
 import { MOMENTS } from "../src/lib/suggestions";
 import { loadState, serialize } from "../src/lib/migrate";
 
@@ -80,4 +80,14 @@ test("the confirmation names what will be removed and that a copy is kept", () =
   assert.equal(removeDemoMessage({ content: 9, assets: 4 }), "Remove 9 demo content items and 4 demo asset links?\n\nYour own content and assets stay. A copy of everything is kept in browser storage first.");
   assert.match(removeDemoMessage({ content: 1, assets: 0 }), /^Remove 1 demo content item\?/);
   assert.match(removeDemoMessage({ content: 0, assets: 1 }), /^Remove 1 demo asset link\?/);
+});
+
+/* ---------- footer note ---------- */
+
+test("the footer mentions the samples only while some are still there", () => {
+  const saved = "Everything you add or edit is saved only in this browser, so export a backup regularly from the Dashboard.";
+  assert.equal(storageNote(structuredClone(DEMO_CONTENT)), `Sample items are shown until you remove them (Dashboard → Remove demo samples). ${saved}`);
+  assert.equal(storageNote([mine("u1", PILLARS[0]), { ...structuredClone(DEMO_CONTENT[0]) }]).startsWith("Sample items"), true, "mixed: still mentions samples");
+  assert.equal(storageNote([mine("u1", PILLARS[0])]), saved);
+  assert.equal(storageNote([]), saved);
 });

@@ -12,6 +12,8 @@ test("a new browser can remove the demo samples, keeping a copy, and stays empty
   await seed(page, {}); // empty storage: the demo samples load
   await page.goto("/");
   await expect(removeLink(page)).toBeVisible();
+  const footer = page.locator("main footer");
+  await expect(footer).toHaveText(/^Sample items are shown until you remove them/);
   await removeLink(page).click();
 
   await expect.poll(() => dialogs.length).toBe(2);
@@ -26,6 +28,7 @@ test("a new browser can remove the demo samples, keeping a copy, and stays empty
   await expect(page.locator("main h1").first()).toBeVisible();
   await expect(page.getByText("Nothing planned yet.")).toBeVisible();
   await expect(removeLink(page)).toHaveCount(0);
+  await expect(footer).toHaveText("Everything you add or edit is saved only in this browser, so export a backup regularly from the Dashboard.");
   await expectNoOverflow(page);
   expect(problems, problems.join("\n")).toEqual([]);
 });

@@ -32,6 +32,14 @@ export function withoutDemoSamples(content: readonly ContentItem[], assets: read
   return { content: content.filter((c) => c.isDemo !== true), assets: assets.filter((a) => !isUntouchedDemoAsset(a)) };
 }
 
+// The footer note shown on every page. It mentions the samples only while some are still there.
+export function storageNote(content: readonly ContentItem[]): string {
+  const saved = "Everything you add or edit is saved only in this browser, so export a backup regularly from the Dashboard.";
+  return content.some((c) => c.isDemo === true)
+    ? `Sample items are shown until you remove them (Dashboard → Remove demo samples). ${saved}`
+    : saved;
+}
+
 export function removeDemoMessage(n: DemoCounts): string {
   const part = (x: number, w: string) => `${x} demo ${w}${x === 1 ? "" : "s"}`;
   const what = [n.content ? part(n.content, "content item") : "", n.assets ? part(n.assets, "asset link") : ""].filter(Boolean).join(" and ");

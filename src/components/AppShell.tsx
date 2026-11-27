@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import InsightsRail from "./Insights";
 import { useStore } from "@/lib/store";
+import { storageNote } from "@/lib/setup";
 
 const ICONS: Record<string, string> = {
   dashboard: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
@@ -49,6 +50,7 @@ function StorageNotice() {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
+  const { content } = useStore();
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
@@ -80,10 +82,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <p className="mb-4 font-serif text-2xl lg:hidden">Little Finds <span className="italic text-muted">MY</span></p>
         <StorageNotice />
         {children}
-        {/* The one place the demo notice lives. */}
-        <footer className="mt-12 border-t border-navy/10 pt-4 text-xs text-muted">
-          Demo data: the sample items are placeholders. Everything you add or edit is saved only in this browser.
-        </footer>
+        {/* The one place the storage note lives; it mentions the samples only while they exist. */}
+        <footer className="mt-12 border-t border-navy/10 pt-4 text-xs text-muted">{storageNote(content)}</footer>
       </main>
 
       {/* Insights rail (xl and up) */}
