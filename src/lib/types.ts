@@ -4,7 +4,15 @@ export type Status = (typeof STATUSES)[number];
 export const PLATFORMS = ["Instagram", "TikTok", "Threads"] as const;
 export type Platform = (typeof PLATFORMS)[number];
 
-export const PILLARS = ["Product Finds", "Behind the Scenes", "Parenting Tips", "Promo", "Community"] as const;
+// The account's content pillars, offered for new content. A pillar is stored as plain text, so
+// content saved with an older pillar keeps it and it stays selectable (see lib/setup.ts).
+export const PILLARS = [
+  "Motherhood & Real Life",
+  "Baby & Toddler Essentials",
+  "Learning & Development",
+  "Home & Family Finds",
+  "Little Finds & Product Discovery",
+] as const;
 
 // Where a set of numbers came from. Only "manual" and "synced" are real account performance.
 export type MetricSource = "demo" | "manual" | "synced";

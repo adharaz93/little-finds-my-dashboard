@@ -19,13 +19,13 @@ export const MOMENT_WINDOW = 21;
 
 // Fixed-date moments only: moving festivals need dates checked every year, so they aren't guessed.
 export const MOMENTS = [
-  { key: "new-year", name: "New Year", month: 1, day: 1, pillar: "Community" },
-  { key: "valentines", name: "Valentine's Day", month: 2, day: 14, pillar: "Promo" },
-  { key: "merdeka", name: "Merdeka Day", month: 8, day: 31, pillar: "Community" },
-  { key: "malaysia-day", name: "Malaysia Day", month: 9, day: 16, pillar: "Community" },
-  { key: "11-11", name: "11.11 sale", month: 11, day: 11, pillar: "Promo" },
-  { key: "12-12", name: "12.12 sale", month: 12, day: 12, pillar: "Promo" },
-  { key: "christmas", name: "Christmas", month: 12, day: 25, pillar: "Promo" },
+  { key: "new-year", name: "New Year", month: 1, day: 1, pillar: "Motherhood & Real Life" },
+  { key: "valentines", name: "Valentine's Day", month: 2, day: 14, pillar: "Little Finds & Product Discovery" },
+  { key: "merdeka", name: "Merdeka Day", month: 8, day: 31, pillar: "Motherhood & Real Life" },
+  { key: "malaysia-day", name: "Malaysia Day", month: 9, day: 16, pillar: "Motherhood & Real Life" },
+  { key: "11-11", name: "11.11 sale", month: 11, day: 11, pillar: "Little Finds & Product Discovery" },
+  { key: "12-12", name: "12.12 sale", month: 12, day: 12, pillar: "Little Finds & Product Discovery" },
+  { key: "christmas", name: "Christmas", month: 12, day: 25, pillar: "Little Finds & Product Discovery" },
 ] as const;
 
 export type SuggestionKind = "pipeline" | "moment" | "pillar" | "format" | "topic" | "followup" | "crosspost";

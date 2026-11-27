@@ -6,6 +6,7 @@ import { today } from "@/lib/posts";
 import { resolvePublishedDate } from "@/lib/capture";
 import { contentDeletionMessage, hasPerformanceData, platformRemovalMessage } from "@/lib/recovery";
 import { useStore } from "@/lib/store";
+import { pillarOptions } from "@/lib/setup";
 import { Button, Field, Input, Modal, Select, Textarea } from "./ui";
 
 export function blankPublication(platform: Platform, date: string): Publication {
@@ -75,7 +76,8 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
         <div className="grid grid-cols-2 gap-3">
           <Field label="Pillar">
             <Select value={f.pillar} onChange={(e) => set("pillar", e.target.value)}>
-              {PILLARS.map((p) => <option key={p}>{p}</option>)}
+              {/* An older pillar saved on this or other content stays selectable. */}
+              {pillarOptions(content, f.pillar).map((p) => <option key={p}>{p}</option>)}
             </Select>
           </Field>
           <Field label="Asset link">

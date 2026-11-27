@@ -6,13 +6,15 @@ import { STATUSES, type ContentItem } from "@/lib/types";
 import { formatDate, statusBar } from "@/lib/utils";
 import ContentForm, { blankContent } from "@/components/ContentForm";
 import BackupLinks from "@/components/BackupLinks";
+import { demoCounts, removeDemoMessage } from "@/lib/setup";
 import { CollapsibleInsights, TodoCard, TopContentCard, compactCard } from "@/components/Insights";
 import { Button, Empty, PageHeader, StatCard, StatusBadge } from "@/components/ui";
 
 // Compact overview grid: KPIs, then Pipeline | Coming up, then To do | Top performing (40 / 60).
 export default function Dashboard() {
-  const { content, posts, resetDemo } = useStore();
+  const { content, posts, assets, resetDemo, removeDemoSamples } = useStore();
   const [editing, setEditing] = useState<ContentItem | null>(null);
+  const demo = demoCounts(content, assets);
 
   const count = (...s: string[]) => posts.filter((c) => s.includes(c.status)).length;
   const upcoming = posts
@@ -82,6 +84,15 @@ export default function Dashboard() {
       <CollapsibleInsights />
 
       <div className="mt-4 flex flex-wrap gap-x-5">
+        {/* Shown only while bundled samples are present, so real use can start clean. */}
+        {demo.content + demo.assets > 0 && (
+          <button
+            onClick={() => confirm(removeDemoMessage(demo)) && removeDemoSamples() && alert("Demo samples removed.")}
+            className="link inline-flex min-h-11 items-center text-xs text-muted"
+          >
+            Remove demo samples
+          </button>
+        )}
         <button onClick={() => confirm("Reset all data back to the demo samples?") && resetDemo()} className="link inline-flex min-h-11 items-center text-xs text-muted">
           Reset demo data
         </button>

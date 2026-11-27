@@ -9,6 +9,7 @@ import { localToday } from "./capture";
 import { EMPTY_PREFS, dismiss as dismissPref, readPrefs, writePrefs, type Prefs } from "./prefs";
 import { ideaContent, withCrossPost, type Suggestion } from "./suggestions";
 import { uid } from "./utils";
+import { withoutDemoSamples } from "./setup";
 import { KEY_LAST_DELETED, commitRecoveryCopy, contentDeletionRecord, planRestore, publicationRemovalRecord, readLastDeleted, type LastDeleted } from "./recovery";
 
 // What the user should know about storage: load problems, and whether the last save worked.
@@ -37,6 +38,9 @@ type Store = {
   saveAsset: (a: Asset) => void;
   deleteAsset: (id: string) => void;
   resetDemo: () => void;
+  // Removes the bundled samples (demo content, unedited demo asset links), keeping everything else.
+  // A copy of all data is written to the before-reset key first. False when cancelled.
+  removeDemoSamples: () => boolean;
   exportData: () => string; // everything, including set-aside records, as a backup file's text
   importBackup: (b: Backup) => boolean; // false when cancelled
 };
@@ -182,6 +186,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setContent(structuredClone(DEMO_CONTENT));
     setAssets(DEMO_ASSETS);
   }, [content, assets]);
+  const removeDemoSamples = useCallback(() => {
+    // Same safety rule as reset: keep a copy of everything first, so the removal can be undone by hand.
+    try {
+      localStorage.setItem(KEY_BEFORE_RESET, serialize(content, assets, quarantine.current));
+    } catch {
+      if (!confirm("A backup of your current data couldn't be saved first. Remove the demo samples anyway?")) return false;
+    }
+    const next = withoutDemoSamples(content, assets);
+    setContent(next.content);
+    setAssets(next.assets);
+    return true;
+  }, [content, assets]);
   const dismissSuggestion = useCallback(
     (id: string) => {
       const day = today ?? localToday();
@@ -233,7 +249,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, reminders, today, prefs, dismissSuggestion, acceptSuggestion, savePublication, saveAsset, deleteAsset, resetDemo, exportData, importBackup }}>
+    <Ctx.Provider value={{ content, posts, assets, storage, dismissNotices, saveContentSafely, deleteContent, lastDeleted, restoreLastDeleted, reminders, today, prefs, dismissSuggestion, acceptSuggestion, savePublication, saveAsset, deleteAsset, resetDemo, removeDemoSamples, exportData, importBackup }}>
       {children}
     </Ctx.Provider>
   );

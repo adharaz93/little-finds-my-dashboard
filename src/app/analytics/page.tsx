@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { PILLARS, PLATFORMS, type Platform } from "@/lib/types";
+import { PLATFORMS, type Platform } from "@/lib/types";
+import { pillarOptions } from "@/lib/setup";
 import type { Post } from "@/lib/posts";
 import {
   byPlatform, change, comparison, highlights, inRange, lastDays, measured, previousRange, totals, trend,
@@ -204,6 +205,7 @@ function PlatformCompare({ data }: { data: Record<Platform, Totals> }) {
 /* ---------- D. Post engagement comparison ---------- */
 
 function Comparison({ rows, className }: { rows: ReturnType<typeof comparison>; className: string }) {
+  const { content } = useStore();
   const [platform, setPlatform] = useState("All");
   const [pillar, setPillar] = useState("All");
   const shown = rows.filter(
@@ -217,7 +219,7 @@ function Comparison({ rows, className }: { rows: ReturnType<typeof comparison>; 
         <h2 className="font-serif text-xl">Post engagement comparison</h2>
         <div className="flex gap-2">
           <div className="w-36"><Select aria-label="Platform filter" value={platform} onChange={(e) => setPlatform(e.target.value)}><option>All</option>{PLATFORMS.map((p) => <option key={p}>{p}</option>)}</Select></div>
-          <div className="w-40"><Select aria-label="Pillar filter" value={pillar} onChange={(e) => setPillar(e.target.value)}><option>All</option>{PILLARS.map((p) => <option key={p}>{p}</option>)}</Select></div>
+          <div className="w-40"><Select aria-label="Pillar filter" value={pillar} onChange={(e) => setPillar(e.target.value)}><option>All</option>{pillarOptions(content).map((p) => <option key={p}>{p}</option>)}</Select></div>
         </div>
       </div>
       {shown.length === 0 ? (

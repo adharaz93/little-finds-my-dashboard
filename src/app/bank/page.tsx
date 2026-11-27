@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { PILLARS, PLATFORMS, STATUSES, type ContentItem, type Publication } from "@/lib/types";
+import { PLATFORMS, STATUSES, type ContentItem, type Publication } from "@/lib/types";
+import { pillarOptions } from "@/lib/setup";
 import { formatDate } from "@/lib/utils";
 import { resolvePublishedDate } from "@/lib/capture";
 import ContentForm, { blankContent } from "@/components/ContentForm";
@@ -42,7 +43,7 @@ export default function BankPage() {
           <option>All</option>{PLATFORMS.map((s) => <option key={s}>{s}</option>)}
         </Select>
         <Select aria-label="Pillar filter" value={pillar} onChange={(e) => setPillar(e.target.value)}>
-          <option>All</option>{PILLARS.map((s) => <option key={s}>{s}</option>)}
+          <option>All</option>{pillarOptions(content).map((s) => <option key={s}>{s}</option>)}
         </Select>
       </div>
 
