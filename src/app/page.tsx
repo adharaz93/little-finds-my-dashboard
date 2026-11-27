@@ -7,6 +7,8 @@ import { formatDate, statusBar } from "@/lib/utils";
 import ContentForm, { blankContent } from "@/components/ContentForm";
 import BackupLinks from "@/components/BackupLinks";
 import { demoCounts, removeDemoMessage } from "@/lib/setup";
+import { useDialogs } from "@/components/dialogs";
+import { runCopyFirst } from "@/lib/copyFirst";
 import { CollapsibleInsights, TodoCard, TopContentCard, compactCard } from "@/components/Insights";
 import { Button, Empty, PageHeader, StatCard, StatusBadge } from "@/components/ui";
 
@@ -15,6 +17,7 @@ export default function Dashboard() {
   const { content, posts, assets, resetDemo, removeDemoSamples } = useStore();
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const demo = demoCounts(content, assets);
+  const dialogs = useDialogs();
 
   const count = (...s: string[]) => posts.filter((c) => s.includes(c.status)).length;
   const upcoming = posts
@@ -87,13 +90,25 @@ export default function Dashboard() {
         {/* Shown only while bundled samples are present, so real use can start clean. */}
         {demo.content + demo.assets > 0 && (
           <button
-            onClick={() => confirm(removeDemoMessage(demo)) && removeDemoSamples() && alert("Demo samples removed.")}
+            onClick={async () => {
+              if (!(await dialogs.confirm({ message: removeDemoMessage(demo), confirmLabel: "Remove", danger: true }))) return;
+              const ran = await runCopyFirst(dialogs.confirm, removeDemoSamples, {
+                message: "A backup of your current data couldn't be saved first. Remove the demo samples anyway?", confirmLabel: "Remove anyway",
+              });
+              if (ran) void dialogs.notify("Demo samples removed.");
+            }}
             className="link inline-flex min-h-11 items-center text-xs text-muted"
           >
             Remove demo samples
           </button>
         )}
-        <button onClick={() => confirm("Reset all data back to the demo samples?") && resetDemo()} className="link inline-flex min-h-11 items-center text-xs text-muted">
+        <button
+          onClick={async () => {
+            if (!(await dialogs.confirm({ message: "Reset all data back to the demo samples?", confirmLabel: "Reset", danger: true }))) return;
+            await runCopyFirst(dialogs.confirm, resetDemo, { message: "A backup of your current data couldn't be saved first. Reset anyway?", confirmLabel: "Reset anyway" });
+          }}
+          className="link inline-flex min-h-11 items-center text-xs text-muted"
+        >
           Reset demo data
         </button>
         <BackupLinks />

@@ -56,16 +56,47 @@ export async function expectNoOverflow(page: Page) {
   expect(overflow, "horizontal overflow (px)").toBeLessThanOrEqual(0);
 }
 
-// Accepts confirm() dialogs and records their text; alert() messages are recorded too.
-export function captureDialogs(page: Page, accept = () => true) {
+// Answers the app's own dialogs (components/dialogs.tsx) and records their text in order:
+// confirmations are accepted unless `accept()` returns false, error boxes are closed with OK, and
+// short notices are recorded. Native browser pop-ups are recorded too, so a test notices if any
+// come back (the app no longer uses them). Call before or after page.goto.
+export async function captureDialogs(page: Page, accept = () => true) {
   const messages: string[] = [];
   page.on("dialog", async (d) => {
-    messages.push(d.message());
-    if (d.type() === "confirm" && !accept()) await d.dismiss();
-    else await d.accept();
+    messages.push(`native ${d.type()}: ${d.message()}`);
+    await d.dismiss();
   });
+  await page.exposeFunction("__lfmDialog", (kind: string, text: string) => {
+    messages.push(text);
+    return kind === "confirm" ? accept() : true;
+  });
+  // Plain script text, not a function: the test compiler adds helpers to named inner functions
+  // that don't exist in the page, which would break the watcher silently.
+  await page.addInitScript({ content: DIALOG_WATCHER });
+  if (page.url() !== "about:blank") await page.evaluate(DIALOG_WATCHER);
   return messages;
 }
+
+const DIALOG_WATCHER = `(() => {
+  if (window.__lfmWatching) return;
+  window.__lfmWatching = true;
+  const seen = new WeakSet();
+  const scan = () => document.querySelectorAll("[data-dialog-kind]").forEach(async (el) => {
+    if (seen.has(el)) return;
+    seen.add(el);
+    const kind = el.getAttribute("data-dialog-kind") || "";
+    const msg = el.querySelector("[data-dialog-message]");
+    const yes = await window.__lfmDialog(kind, msg ? msg.textContent : "");
+    const btn = kind === "confirm" ? el.querySelector(yes ? "[data-dialog-confirm]" : "[data-dialog-cancel]")
+      : kind === "error" ? el.querySelector("[data-dialog-ok]") : null;
+    if (btn) btn.click();
+  });
+  const start = () => {
+    new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true });
+    scan();
+  };
+  if (document.documentElement) start(); else document.addEventListener("DOMContentLoaded", start);
+})();`;
 
 export const isDesktop = (info: TestInfo) => info.project.name === "desktop-1440";
 

@@ -9,6 +9,7 @@ import { engagementRate, formatDate, hasRate, num, pct } from "@/lib/utils";
 import CaptureForm, { type CaptureValues } from "./CaptureForm";
 import CaptureTimeline from "./CaptureTimeline";
 import { Badge, Button, Modal, PlatformBadge, StatusBadge } from "./ui";
+import { useDialogs } from "./dialogs";
 
 // Where a set of numbers came from, as a badge. Shared with Analytics.
 export const SOURCE_BADGE: Record<MetricSource, { t: string; c: string }> = {
@@ -33,6 +34,7 @@ const captureName = (s: MetricSnapshot) => (s.capturedOn ? formatDate(s.captured
 // with edit, remove (soft) and restore. Every action is one P1b operation and one save.
 export default function PerformancePanel({ contentId, publicationId, onClose }: { contentId: string; publicationId: string; onClose: () => void }) {
   const { content, savePublication } = useStore();
+  const dialogs = useDialogs();
   const item = content.find((c) => c.id === contentId);
   const pub = item?.publications.find((p) => p.id === publicationId);
   const [mode, setMode] = useState<{ kind: "list" } | { kind: "add" } | { kind: "edit"; index: number }>({ kind: "list" });
@@ -61,8 +63,9 @@ export default function PerformancePanel({ contentId, publicationId, onClose }: 
     const base = withIds();
     save(editCapture(base, base.snapshots[index].id!, { metrics: v.metrics, capturedOn: v.capturedOn || undefined, note: v.note }), "Capture updated.");
   };
-  const remove = (e: HistoryEntry) => {
-    if (!confirm(`Remove the capture from ${captureName(e.snap)}? You can restore it later from "Removed".`)) return;
+  const remove = async (e: HistoryEntry) => {
+    const message = `Remove the capture from ${captureName(e.snap)}? You can restore it later from "Removed".`;
+    if (!(await dialogs.confirm({ message, confirmLabel: "Remove", danger: true }))) return;
     const base = withIds();
     save(removeCapture(base, base.snapshots[e.index].id!), "Capture removed. You can restore it from Removed.");
   };

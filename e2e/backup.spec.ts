@@ -44,7 +44,7 @@ test("a failed export shows an error and leaves the indicator unchanged", async 
       throw new Error("simulated export failure");
     };
   });
-  const dialogs = captureDialogs(page);
+  const dialogs = await captureDialogs(page);
   await page.goto("/");
   const before = await label(page).innerText();
   await page.getByRole("button", { name: "Export backup" }).click();

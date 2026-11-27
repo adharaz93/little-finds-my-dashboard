@@ -8,6 +8,7 @@ import { contentDeletionMessage, hasPerformanceData, platformRemovalMessage } fr
 import { useStore } from "@/lib/store";
 import { pillarOptions } from "@/lib/setup";
 import { Button, Field, Input, Modal, Select, Textarea } from "./ui";
+import { useDialogs } from "./dialogs";
 
 export function blankPublication(platform: Platform, date: string): Publication {
   return {
@@ -24,6 +25,7 @@ export function blankContent(date = today()): ContentItem {
 // Post URL, post ID and published date sit under "More details" so the form stays short.
 export default function ContentForm({ item, onClose }: { item: ContentItem; onClose: () => void }) {
   const { content, saveContentSafely, deleteContent } = useStore();
+  const dialogs = useDialogs();
   const isEdit = content.some((c) => c.id === item.id);
   const [f, setF] = useState(item);
   // Topics are typed as one comma-separated line and cleaned on save.
@@ -32,7 +34,7 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
   const setPub = (id: string, patch: Partial<Publication>) =>
     setF((p) => ({ ...p, publications: p.publications.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
 
-  const togglePlatform = (platform: Platform) => {
+  const togglePlatform = async (platform: Platform) => {
     const existing = f.publications.find((p) => p.platform === platform);
     if (!existing) {
       const date = f.publications[0]?.scheduledDate ?? today();
@@ -41,8 +43,9 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
     }
     if (f.publications.length === 1) return; // a content item keeps at least one platform
     // Any capture (removed ones included) or numbers saved before history count as performance data.
-    if (hasPerformanceData(existing) && !confirm(platformRemovalMessage(existing))) return;
-    set("publications", f.publications.filter((p) => p.id !== existing.id));
+    if (hasPerformanceData(existing) && !(await dialogs.confirm({ message: platformRemovalMessage(existing), confirmLabel: "Remove", danger: true }))) return;
+    // Functional update: the form may have changed while the confirmation was open.
+    setF((p) => ({ ...p, publications: p.publications.filter((x) => x.id !== existing.id) }));
   };
 
   return (
@@ -64,7 +67,7 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
           });
           // A removed platform's data couldn't be copied for recovery: nothing was saved, the form stays open.
           if (!r.ok) {
-            alert(r.error);
+            void dialogs.notify(r.error, "error");
             return;
           }
           onClose();
@@ -166,13 +169,13 @@ export default function ContentForm({ item, onClose }: { item: ContentItem; onCl
           {isEdit ? (
             <Button
               variant="danger"
-              onClick={() => {
+              onClick={async () => {
                 // Counts come from the saved item, which is what gets deleted (not unsaved form edits).
                 const saved = content.find((c) => c.id === f.id);
-                if (!saved || !confirm(contentDeletionMessage(saved))) return;
+                if (!saved || !(await dialogs.confirm({ message: contentDeletionMessage(saved), confirmLabel: "Delete", danger: true }))) return;
                 const r = deleteContent(f.id);
                 if (!r.ok) {
-                  alert(r.error);
+                  void dialogs.notify(r.error, "error");
                   return;
                 }
                 onClose();

@@ -32,25 +32,26 @@ async function editContent(page: import("@playwright/test").Page, title: string)
 }
 
 test("deleting content names the counts, keeps a recovery copy, and restores exactly", async ({ page }) => {
-  const dialogs = captureDialogs(page);
+  const dialogs = await captureDialogs(page);
   const dialog = await editContent(page, "Gift guide");
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
-  expect(dialogs[0]).toBe("Delete 'Gift guide'? This will delete 2 platform posts and 3 performance captures. A recovery copy will be available on the Dashboard until your next deletion.");
+  await expect.poll(() => dialogs[0]).toBe("Delete 'Gift guide'? This will delete 2 platform posts and 3 performance captures. A recovery copy will be available on the Dashboard until your next deletion.");
   await expect.poll(async () => (await content(page)).map((c: { id: string }) => c.id)).toEqual(["e1"]);
   expect(JSON.parse((await readStorage(page, KEY_LAST_DELETED))!).item).toEqual(gift);
 
   await page.goto("/");
   await page.getByRole("button", { name: /^Restore 'Gift guide' \(content\) — deleted / }).click();
   await expect.poll(async () => (await content(page)).find((c: { id: string }) => c.id === "g1")).toEqual(gift);
-  expect(dialogs.at(-1)).toBe("Restored 'Gift guide'.");
+  await expect.poll(() => dialogs.at(-1)).toBe("Restored 'Gift guide'.");
   await expect.poll(() => readStorage(page, KEY_LAST_DELETED)).toBeNull();
 });
 
 test("removing a platform with only removed captures still asks, and can be restored", async ({ page }) => {
-  const dialogs = captureDialogs(page);
+  const dialogs = await captureDialogs(page);
   const dialog = await editContent(page, "Gift guide");
   await dialog.getByRole("button", { name: "✓ TikTok" }).click();
-  expect(dialogs[0]).toBe("Remove TikTok? When you save, this TikTok post and its 1 performance capture will be deleted. A recovery copy is kept on the Dashboard until your next deletion.");
+  await expect.poll(() => dialogs[0]).toBe("Remove TikTok? When you save, this TikTok post and its 1 performance capture will be deleted. A recovery copy is kept on the Dashboard until your next deletion.");
+  await expect(page.getByRole("alertdialog")).toHaveCount(0); // answered before saving
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(async () => (await content(page))[0].publications.map((p: { id: string }) => p.id)).toEqual(["g1-ig"]);
   await page.goto("/");
@@ -61,10 +62,10 @@ test("removing a platform with only removed captures still asks, and can be rest
 test("deleting an empty draft never replaces an existing recovery copy", async ({ page }) => {
   const existing = JSON.stringify({ kind: "content", deletedAt: "2026-11-25T01:00:00.000Z", item: gift });
   await page.addInitScript((c) => { if (!sessionStorage.getItem("__e2eCopy")) { localStorage.setItem("lfm-studio-v2-last-deleted", c); sessionStorage.setItem("__e2eCopy", "1"); } }, existing);
-  const dialogs = captureDialogs(page);
+  const dialogs = await captureDialogs(page);
   const dialog = await editContent(page, "Empty draft");
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
-  expect(dialogs[0]).toBe("Delete 'Empty draft'? This will delete 1 platform post. It has no performance data, so no recovery copy is needed.");
+  await expect.poll(() => dialogs[0]).toBe("Delete 'Empty draft'? This will delete 1 platform post. It has no performance data, so no recovery copy is needed.");
   await expect.poll(async () => (await content(page)).map((c: { id: string }) => c.id)).toEqual(["g1"]);
   expect(await readStorage(page, KEY_LAST_DELETED)).toBe(existing);
 });

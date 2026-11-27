@@ -10,6 +10,7 @@ import { EMPTY_PREFS, dismiss as dismissPref, readPrefs, writePrefs, type Prefs 
 import { ideaContent, withCrossPost, type Suggestion } from "./suggestions";
 import { uid } from "./utils";
 import { withoutDemoSamples } from "./setup";
+import type { CopyFirst, Force } from "./copyFirst";
 import { KEY_LAST_DELETED, commitRecoveryCopy, contentDeletionRecord, planRestore, publicationRemovalRecord, readLastDeleted, type LastDeleted } from "./recovery";
 
 // What the user should know about storage: load problems, and whether the last save worked.
@@ -37,12 +38,13 @@ type Store = {
   savePublication: (contentId: string, p: Publication) => void;
   saveAsset: (a: Asset) => void;
   deleteAsset: (id: string) => void;
-  resetDemo: () => void;
+  // The three actions below write a copy of all data first. If that copy can't be saved they change
+  // nothing and return "backup-failed"; the screen asks the user and may call again with force.
+  resetDemo: (o?: Force) => CopyFirst;
   // Removes the bundled samples (demo content, unedited demo asset links), keeping everything else.
-  // A copy of all data is written to the before-reset key first. False when cancelled.
-  removeDemoSamples: () => boolean;
+  removeDemoSamples: (o?: Force) => CopyFirst;
   exportData: () => string; // everything, including set-aside records, as a backup file's text
-  importBackup: (b: Backup) => boolean; // false when cancelled
+  importBackup: (b: Backup, o?: Force) => CopyFirst;
 };
 
 export type Result = { ok: true } | { ok: false; error: string };
@@ -176,28 +178,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const saveAsset = useCallback((a: Asset) => setAssets((l) => upsert(l, a)), []);
   const deleteAsset = useCallback((id: string) => setAssets((l) => l.filter((x) => x.id !== id)), []);
   const dismissNotices = useCallback(() => setStorage((s) => ({ ...s, notices: [] })), []);
-  const resetDemo = useCallback(() => {
-    // Keep a copy of everything first, so a reset can be undone by hand.
-    try {
-      localStorage.setItem(KEY_BEFORE_RESET, serialize(content, assets, quarantine.current));
-    } catch {
-      if (!confirm("A backup of your current data couldn't be saved first. Reset anyway?")) return;
-    }
-    setContent(structuredClone(DEMO_CONTENT));
-    setAssets(DEMO_ASSETS);
-  }, [content, assets]);
-  const removeDemoSamples = useCallback(() => {
-    // Same safety rule as reset: keep a copy of everything first, so the removal can be undone by hand.
-    try {
-      localStorage.setItem(KEY_BEFORE_RESET, serialize(content, assets, quarantine.current));
-    } catch {
-      if (!confirm("A backup of your current data couldn't be saved first. Remove the demo samples anyway?")) return false;
-    }
-    const next = withoutDemoSamples(content, assets);
-    setContent(next.content);
-    setAssets(next.assets);
-    return true;
-  }, [content, assets]);
+  // Keeps a copy of everything under `key` first, so the change can be undone by hand. Without force,
+  // a failed copy stops the change.
+  const copyFirst = useCallback(
+    (key: string, o?: Force): boolean => {
+      try {
+        localStorage.setItem(key, serialize(content, assets, quarantine.current));
+        return true;
+      } catch {
+        return o?.force === true;
+      }
+    },
+    [content, assets],
+  );
+  const resetDemo = useCallback(
+    (o?: Force): CopyFirst => {
+      if (!copyFirst(KEY_BEFORE_RESET, o)) return "backup-failed";
+      setContent(structuredClone(DEMO_CONTENT));
+      setAssets(DEMO_ASSETS);
+      return "done";
+    },
+    [copyFirst],
+  );
+  const removeDemoSamples = useCallback(
+    (o?: Force): CopyFirst => {
+      if (!copyFirst(KEY_BEFORE_RESET, o)) return "backup-failed";
+      const next = withoutDemoSamples(content, assets);
+      setContent(next.content);
+      setAssets(next.assets);
+      return "done";
+    },
+    [copyFirst, content, assets],
+  );
   const dismissSuggestion = useCallback(
     (id: string) => {
       const day = today ?? localToday();
@@ -233,19 +245,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
   const exportData = useCallback(() => serialize(content, assets, quarantine.current), [content, assets]);
   const importBackup = useCallback(
-    (b: Backup) => {
+    (b: Backup, o?: Force): CopyFirst => {
       // Same rule as reset: keep a copy of everything first, so an import can be undone by hand.
-      try {
-        localStorage.setItem(KEY_BEFORE_IMPORT, serialize(content, assets, quarantine.current));
-      } catch {
-        if (!confirm("A backup of your current data couldn't be saved first. Import anyway?")) return false;
-      }
+      if (!copyFirst(KEY_BEFORE_IMPORT, o)) return "backup-failed";
       quarantine.current = b.quarantine;
       setContent(b.content);
       if (b.assets) setAssets(b.assets);
-      return true;
+      return "done";
     },
-    [content, assets],
+    [copyFirst],
   );
 
   return (

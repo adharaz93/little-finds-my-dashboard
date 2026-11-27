@@ -8,7 +8,7 @@ const removeLink = (page: import("@playwright/test").Page) => page.getByRole("bu
 
 test("a new browser can remove the demo samples, keeping a copy, and stays empty after reload", async ({ page }) => {
   const problems = watchProblems(page);
-  const dialogs = captureDialogs(page);
+  const dialogs = await captureDialogs(page);
   await seed(page, {}); // empty storage: the demo samples load
   await page.goto("/");
   await expect(removeLink(page)).toBeVisible();
@@ -32,7 +32,7 @@ test("a new browser can remove the demo samples, keeping a copy, and stays empty
 
 test("removing demo samples keeps the user's own content; cancelling changes nothing", async ({ page }) => {
   let accept = false;
-  captureDialogs(page, () => accept);
+  await captureDialogs(page, () => accept);
   const mine = item("u1", "My real post", [pub("u1-ig", "Instagram", "2026-11-20")]);
   const demo = { ...item("c1", "Demo post", [pub("c1-ig", "Instagram", "2026-11-03")], { pillar: "Product Finds" }), isDemo: true };
   const before = JSON.stringify({ version: 2, content: [mine, demo], assets: [] });
@@ -50,7 +50,7 @@ test("removing demo samples keeps the user's own content; cancelling changes not
 });
 
 test("new content offers the account's pillars; an older pillar stays selectable and is kept on save", async ({ page }) => {
-  captureDialogs(page);
+  await captureDialogs(page);
   const old = item("o1", "Older post", [pub("o1-ig", "Instagram", "2026-11-20")], { pillar: "Promo" });
   await seed(page, { [KEY_V2]: JSON.stringify({ version: 2, content: [old], assets: [] }) });
   await page.goto("/bank");

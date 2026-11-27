@@ -5,6 +5,8 @@ import { readBackup } from "@/lib/migrate";
 import { today } from "@/lib/posts";
 import { lastDeletedLabel } from "@/lib/recovery";
 import { lastExportLabel, readLastExport, writeLastExport } from "@/lib/exportInfo";
+import { useDialogs } from "./dialogs";
+import { runCopyFirst } from "@/lib/copyFirst";
 
 const linkClass = "link inline-flex min-h-11 items-center text-xs text-muted";
 
@@ -13,6 +15,7 @@ const linkClass = "link inline-flex min-h-11 items-center text-xs text-muted";
 export default function BackupLinks() {
   const { content, assets, exportData, importBackup, lastDeleted, restoreLastDeleted } = useStore();
   const file = useRef<HTMLInputElement>(null);
+  const dialogs = useDialogs();
   // Last successful export. Read in the browser after load (undefined until then, so the
   // prerendered HTML and the first render match); null means never.
   const [lastExport, setLastExport] = useState<string | null | undefined>(undefined);
@@ -32,7 +35,7 @@ export default function BackupLinks() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("The backup couldn't be created, so nothing was exported. Your data is unchanged.");
+      void dialogs.notify("The backup couldn't be created, so nothing was exported. Your data is unchanged.", "error");
       return;
     }
     const at = new Date().toISOString();
@@ -46,7 +49,7 @@ export default function BackupLinks() {
     if (!f) return;
     const b = readBackup(await f.text());
     if (!b) {
-      alert("This file isn't a Little Finds backup, so nothing was changed.");
+      void dialogs.notify("This file isn't a Little Finds backup, so nothing was changed.", "error");
       return;
     }
     const n = (x: number, w: string) => `${x} ${w}${x === 1 ? "" : "s"}`;
@@ -56,7 +59,11 @@ export default function BackupLinks() {
       ...(b.unreadable ? [`${n(b.unreadable, "record")} in the file couldn't be read and will be set aside, not deleted.`] : []),
       "A copy of your current data is kept in browser storage first.",
     ];
-    if (confirm(lines.join("\n\n")) && importBackup(b)) alert("Backup imported.");
+    if (!(await dialogs.confirm({ message: lines.join("\n\n"), confirmLabel: "Import", danger: true }))) return;
+    const ran = await runCopyFirst(dialogs.confirm, (o) => importBackup(b, o), {
+      message: "A backup of your current data couldn't be saved first. Import anyway?", confirmLabel: "Import anyway",
+    });
+    if (ran) void dialogs.notify("Backup imported.");
   };
 
   return (
@@ -71,7 +78,7 @@ export default function BackupLinks() {
         <button
           onClick={() => {
             const r = restoreLastDeleted();
-            alert(r.ok ? r.message : r.error);
+            void (r.ok ? dialogs.notify(r.message) : dialogs.notify(r.error, "error"));
           }}
           className={linkClass}
         >

@@ -40,7 +40,7 @@ test("invalid numbers are blocked with messages; nothing is saved", async ({ pag
 
 test("add, edit, remove and restore a capture", async ({ page }) => {
   const problems = watchProblems(page);
-  const dialogs = captureDialogs(page);
+  const dialogs = await captureDialogs(page);
   const dialog = await openPanel(page);
 
   // Add (24 Nov = Day 7).
@@ -67,7 +67,7 @@ test("add, edit, remove and restore a capture", async ({ page }) => {
 
   // Remove the latest (asks first), then restore it.
   await dialog.getByRole("button", { name: "Remove capture from 24 Nov, Instagram" }).click();
-  expect(dialogs.at(-1)).toBe('Remove the capture from 24 Nov? You can restore it later from "Removed".');
+  await expect.poll(() => dialogs.at(-1)).toBe('Remove the capture from 24 Nov? You can restore it later from "Removed".');
   await expect(dialog.getByText("Latest · 18 Nov · Day 1")).toBeVisible();
   p = await stored(page);
   expect(p.snapshots).toHaveLength(2); // soft delete: still stored

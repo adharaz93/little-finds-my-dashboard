@@ -60,7 +60,7 @@ test("Posting badges match their own publications", async ({ page }) => {
 });
 
 test("a capture clears the reminder", async ({ page }) => {
-  captureDialogs(page);
+  await captureDialogs(page);
   await page.goto("/posting");
   await showPostedColumn(page);
   await page.getByRole("button", { name: "Performance for Age 8 post, Instagram" }).click();

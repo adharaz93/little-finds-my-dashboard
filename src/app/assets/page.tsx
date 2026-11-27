@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { ASSET_TYPES, type Asset } from "@/lib/types";
 import { uid } from "@/lib/utils";
+import { useDialogs } from "@/components/dialogs";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, btnClass } from "@/components/ui";
 
 const blank = (): Asset => ({ id: uid(), name: "", type: "Photo", url: "", tags: "" });
@@ -14,6 +15,7 @@ export default function AssetsPage() {
   const [q, setQ] = useState("");
   const [type, setType] = useState("All");
   const [editing, setEditing] = useState<Asset | null>(null);
+  const dialogs = useDialogs();
 
   const list = assets.filter(
     (a) => (type === "All" || a.type === type) && (a.name + a.tags).toLowerCase().includes(q.toLowerCase()),
@@ -70,7 +72,16 @@ export default function AssetsPage() {
             <Field label="Tags (comma separated)"><Input value={editing.tags} onChange={(e) => setEditing({ ...editing, tags: e.target.value })} /></Field>
             <div className="flex justify-between pt-2">
               {assets.some((a) => a.id === editing.id) ? (
-                <Button variant="danger" onClick={() => { if (confirm("Delete this asset link?")) { deleteAsset(editing.id); setEditing(null); } }}>Delete</Button>
+                <Button
+                  variant="danger"
+                  onClick={async () => {
+                    if (!(await dialogs.confirm({ message: "Delete this asset link?", confirmLabel: "Delete", danger: true }))) return;
+                    deleteAsset(editing.id);
+                    setEditing(null);
+                  }}
+                >
+                  Delete
+                </Button>
               ) : <span />}
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
